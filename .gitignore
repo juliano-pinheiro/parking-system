@@ -1,0 +1,6 @@
+data/tickets.json
+data/configuracao.json
+__pycache__/
+*.pyc
+.env
+data/

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estaciona - Controle por ticket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<!-- ==================== SIDEBAR ==================== -->
+<aside class="app-sidebar" id="app-sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="3" y="11" width="18" height="6" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        <circle cx="7.5" cy="17" r="1.4" fill="currentColor"/>
+        <circle cx="16.5" cy="17" r="1.4" fill="currentColor"/>
+      </svg>
+    </span>
+    <div class="brand-text">
+      <strong>Estaciona Parking</strong>
+    </div>
+  </div>
+
+  <div class="sidebar-search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <input type="text" id="sidebar-input-pesquisa" placeholder="Pesquisar...">
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="#" class="menu-item active" data-view="view-visao-geral">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>
+      Visão Geral
+    </a>
+    <a href="#" class="menu-item" data-view="view-usuarios">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Usuários
+    </a>
+    <a href="#" class="menu-item" data-view="view-clientes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+      Clientes
+    </a>
+    <a href="#" class="menu-item" data-view="view-relatorios">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Relatórios
+    </a>
+    <a href="#" class="menu-item" data-view="view-configuracoes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 18.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Configurações
+    </a>
+  </nav>
+</aside>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+<div class="app-content">
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="app-header">
+    <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Abrir menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <div class="header-info">
+      <span class="header-date" id="header-data">--</span>
+      <span class="header-count" id="header-contagem">0 veículo(s) no pátio</span>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- ==================== VISAO GERAL ==================== -->
+    <section class="view view-active" id="view-visao-geral">
+
+      <!-- ==================== CARDS DE RESUMO ==================== -->
+      <section class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-info">
+            <span class="summary-label">No pátio agora</span>
+            <span class="summary-value" id="card-no-patio">0</span>
+          </div>
+          <div class="summary-icon icon-blue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="3" y="11" width="18" height="6" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <circle cx="7.5" cy="17" r="1.4" fill="currentColor"/>
+              <circle cx="16.5" cy="17" r="1.4" fill="currentColor"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="summary-card" id="card-vagas-disponiveis">
+          <div class="summary-info">
+            <span class="summary-label">Vagas disponíveis</span>
+            <span class="summary-value" id="card-vagas-disponiveis-valor">0</span>
+          </div>
+          <div class="summary-icon icon-teal">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-info">
+            <span class="summary-label">Faturamento hoje</span>
+            <span class="summary-value" id="card-faturamento">R$ 0,00</span>
+          </div>
+          <div class="summary-icon icon-yellow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-info">
+            <span class="summary-label">Saídas hoje</span>
+            <span class="summary-value" id="card-saidas">0</span>
+          </div>
+          <div class="summary-icon icon-green">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 17l6-6 4 4 7-7M20 8h-4v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-info">
+            <span class="summary-label">Permanência média</span>
+            <span class="summary-value" id="card-permanencia">—</span>
+          </div>
+          <div class="summary-icon icon-purple">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== CONTEUDO PRINCIPAL ==================== -->
+      <section class="content-grid">
+
+        <!-- ---------- NOVA ENTRADA ---------- -->
+        <div class="panel panel-entrada">
+          <h2 class="panel-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="3" y="11" width="18" height="6" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <circle cx="7.5" cy="17" r="1.4" fill="currentColor"/>
+              <circle cx="16.5" cy="17" r="1.4" fill="currentColor"/>
+            </svg>
+            Nova Entrada
+          </h2>
+
+          <form id="form-entrada" autocomplete="off">
+            <label for="input-placa">Placa</label>
+            <input type="text" id="input-placa" placeholder="ABC1D23" maxlength="10" required>
+
+            <label for="input-tipo">Tipo de Veículo</label>
+            <select id="input-tipo">
+              <option value="Carro">Carro</option>
+              <option value="Moto">Moto</option>
+              <option value="Caminhonete">Caminhonete</option>
+            </select>
+
+            <label for="input-observacoes">Observações (opcional)</label>
+            <input type="text" id="input-observacoes" placeholder="Cor, modelo, observação...">
+
+            <button type="submit" class="btn-emitir">
+              <span class="btn-plus">+</span> Emitir Ticket
+            </button>
+          </form>
+        </div>
+
+        <!-- ---------- OPERACAO ---------- -->
+        <div class="panel panel-operacao">
+          <h2 class="panel-title">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M15 17l5-5-5-5M20 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Operação
+          </h2>
+
+          <div class="tabs" id="tabs">
+            <button class="tab active" data-tab="patio">No pátio (<span id="tab-count-patio">0</span>)</button>
+            <button class="tab" data-tab="historico">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Histórico
+            </button>
+          </div>
+
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input type="text" id="input-busca" placeholder="Buscar por placa ou ticket...">
+          </div>
+
+          <div class="vehicle-list" id="vehicle-list">
+            <!-- Preenchido via JS -->
+          </div>
+          <p class="empty-state" id="lista-empty" hidden>Nenhum veículo encontrado.</p>
+        </div>
+
+      </section>
+    </section>
+
+    <!-- ==================== USUARIOS ==================== -->
+    <section class="view" id="view-usuarios">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Usuários
+          </h2>
+          <button type="button" class="btn-novo" id="btn-novo-usuario">
+            <span class="btn-plus">+</span> Novo usuário
+          </button>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Perfil</th>
+                <th>Status</th>
+                <th>Cadastro</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-usuarios">
+              <tr>
+                <td colspan="6" class="table-empty">Carregando usuários...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="usuarios-empty" hidden>Nenhum usuário cadastrado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== MODAL USUARIO ==================== -->
+    <div class="modal-overlay" id="modal-usuario" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title" id="modal-usuario-titulo">Novo usuário</h3>
+          <button type="button" class="modal-close" id="modal-usuario-fechar" aria-label="Fechar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <form id="form-usuario" class="modal-form" autocomplete="off">
+          <input type="hidden" id="input-usuario-id">
+
+          <label for="input-usuario-nome">Nome</label>
+          <input type="text" id="input-usuario-nome" placeholder="Nome completo" required>
+
+          <label for="input-usuario-email">E-mail</label>
+          <input type="email" id="input-usuario-email" placeholder="email@exemplo.com" required>
+
+          <label for="input-usuario-perfil">Perfil</label>
+          <select id="input-usuario-perfil">
+            <option value="admin">Administrador</option>
+            <option value="operador">Operador</option>
+          </select>
+
+          <label for="input-usuario-ativo">Status</label>
+          <select id="input-usuario-ativo">
+            <option value="true">Ativo</option>
+            <option value="false">Inativo</option>
+          </select>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-cancelar" id="btn-usuario-cancelar">Cancelar</button>
+            <button type="submit" class="btn-emitir btn-salvar" id="btn-usuario-salvar">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==================== CLIENTES ==================== -->
+    <section class="view" id="view-clientes">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+            Clientes
+          </h2>
+          <button type="button" class="btn-novo" id="btn-novo-cliente">
+            <span class="btn-plus">+</span> Novo cliente
+          </button>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Telefone</th>
+                <th>Placa</th>
+                <th>Categoria</th>
+                <th>Vigência</th>
+                <th>Status</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-clientes">
+              <tr>
+                <td colspan="7" class="table-empty">Carregando clientes...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="clientes-empty" hidden>Nenhum cliente cadastrado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== MODAL CLIENTE ==================== -->
+    <div class="modal-overlay" id="modal-cliente" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title" id="modal-cliente-titulo">Novo cliente</h3>
+          <button type="button" class="modal-close" id="modal-cliente-fechar" aria-label="Fechar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <form id="form-cliente" class="modal-form" autocomplete="off">
+          <input type="hidden" id="input-cliente-id">
+
+          <label for="input-cliente-nome">Nome</label>
+          <input type="text" id="input-cliente-nome" placeholder="Nome completo" required>
+
+          <label for="input-cliente-telefone">Telefone</label>
+          <input type="text" id="input-cliente-telefone" placeholder="(11) 99999-9999" required>
+
+          <label for="input-cliente-placa">Placa do veículo</label>
+          <input type="text" id="input-cliente-placa" placeholder="ABC1D23" maxlength="10" required>
+
+          <label for="input-cliente-categoria">Categoria</label>
+          <select id="input-cliente-categoria">
+            <option value="carro_pequeno">Carro pequeno</option>
+            <option value="carro_grande">Carro grande</option>
+            <option value="moto">Moto</option>
+            <option value="caminhonete">Caminhonete</option>
+          </select>
+
+          <label for="input-cliente-data-inicio">Início da vigência</label>
+          <input type="text" id="input-cliente-data-inicio" placeholder="dd/mm/aaaa" required>
+
+          <label for="input-cliente-data-fim">Fim da vigência</label>
+          <input type="text" id="input-cliente-data-fim" placeholder="dd/mm/aaaa" required>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-cancelar" id="btn-cliente-cancelar">Cancelar</button>
+            <button type="submit" class="btn-emitir btn-salvar" id="btn-cliente-salvar">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==================== RELATORIOS ==================== -->
+    <section class="view" id="view-relatorios">
+      <div class="panel">
+        <h2 class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Relatórios
+        </h2>
+        <form id="form-relatorio-modal" autocomplete="off">
+          <label for="input-data-relatorio">Filtrar por data</label>
+          <input type="text" id="input-data-relatorio" placeholder="dd/mm/aaaa (deixe em branco para tudo)">
+          <button type="submit" class="btn-emitir">Gerar relatório</button>
+        </form>
+
+        <div class="modal-stats" id="modal-stats" hidden>
+          <div class="modal-stat">
+            <span class="modal-stat-label">Entradas</span>
+            <span class="modal-stat-value" id="rel-total-entradas">0</span>
+          </div>
+          <div class="modal-stat">
+            <span class="modal-stat-label">Saídas</span>
+            <span class="modal-stat-value" id="rel-total-saidas">0</span>
+          </div>
+          <div class="modal-stat">
+            <span class="modal-stat-label">Faturamento</span>
+            <span class="modal-stat-value" id="rel-faturamento">R$ 0,00</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CONFIGURACOES ==================== -->
+    <section class="view" id="view-configuracoes">
+      <div class="panel">
+        <h2 class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 18.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Configurações
+        </h2>
+
+        <form id="form-configuracoes" autocomplete="off">
+          <div class="config-section">
+            <h3 class="config-section-title">Valores por hora (avulsos)</h3>
+            <div class="config-grid">
+              <div class="config-field">
+                <label for="input-config-primeira-hora">Primeira hora (ou fração)</label>
+                <input type="number" id="input-config-primeira-hora" min="0" step="0.01" placeholder="0,00" required>
+              </div>
+              <div class="config-field">
+                <label for="input-config-hora-adicional">Hora adicional (ou fração)</label>
+                <input type="number" id="input-config-hora-adicional" min="0" step="0.01" placeholder="0,00" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h3 class="config-section-title">Mensalistas</h3>
+            <div class="config-grid">
+              <div class="config-field">
+                <label for="input-config-valor-mensal">Valor do plano mensal</label>
+                <input type="number" id="input-config-valor-mensal" min="0" step="0.01" placeholder="0,00" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h3 class="config-section-title">Vagas</h3>
+            <div class="config-grid">
+              <div class="config-field">
+                <label for="input-config-total-vagas">Total de vagas</label>
+                <input type="number" id="input-config-total-vagas" min="1" step="1" placeholder="0" required>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-emitir btn-salvar-config">Salvar configurações</button>
+        </form>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
