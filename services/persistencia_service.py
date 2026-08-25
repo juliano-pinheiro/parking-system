@@ -33,34 +33,42 @@ class PersistenciaService:
     # TICKETS - SUPABASE
     # =====================================================
 
-    def carregar_tickets(self) -> List[Ticket]:
-        """Carrega todos os tickets do Supabase."""
+    def carregar_tickets(self, empresa_id: int | None = None) -> List[Ticket]:
+        """Carrega os tickets do Supabase, filtrados pela empresa quando informado."""
 
-        resposta = (
+        query = (
             supabase
             .table("tickets")
             .select("*")
             .order("numero")
-            .execute()
         )
+        if empresa_id is not None:
+            query = query.eq("empresa_id", empresa_id)
 
-        return [
-            Ticket.from_dict(item)
-            for item in resposta.data
-        ]
+        resposta = query.execute()
 
-    def salvar_tickets(self, tickets: List[Ticket]) -> None:
+        tickets = []
+        for item in resposta.data:
+            item = dict(item)
+            item["entrada"] = self._converter_data_iso_para_interna(item.get("entrada"))
+            item["saida"] = self._converter_data_iso_para_interna(item.get("saida"))
+            tickets.append(Ticket.from_dict(item))
+
+        return tickets
+
+    def salvar_tickets(self, tickets: List[Ticket], empresa_id: int | None = None) -> None:
         """
-        Sincroniza os tickets com o Supabase.
-
-        Nesta primeira etapa, remove os registros atuais
-        e grava novamente a lista completa.
+        Sincroniza os tickets da empresa atual com o Supabase.
+        Remove apenas os tickets da empresa (nao apaga os demais CNPJs).
         """
 
-        # Remove os tickets existentes
-        supabase.table("tickets").delete().neq("numero", -1).execute()
+        query_delete = supabase.table("tickets").delete()
+        if empresa_id is not None:
+            query_delete = query_delete.eq("empresa_id", empresa_id)
+        else:
+            query_delete = query_delete.neq("numero", -1)
+        query_delete.execute()
 
-        # Se nao houver tickets, encerra
         if not tickets:
             return
 
@@ -77,43 +85,139 @@ class PersistenciaService:
                 "status": ticket.status,
                 "tipo_veiculo": ticket.tipo_veiculo,
                 "observacoes": ticket.observacoes,
+                "forma_pagamento": ticket.forma_pagamento,
+                "empresa_id": empresa_id if empresa_id is not None else ticket.empresa_id,
             })
 
         supabase.table("tickets").insert(dados).execute()
+
+    def proximo_numero_global(self) -> int:
+        """Proximo numero de ticket unico (evita conflito de PK entre empresas)."""
+        try:
+            resposta = (
+                supabase
+                .table("tickets")
+                .select("numero")
+                .order("numero", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if resposta.data:
+                return int(resposta.data[0]["numero"]) + 1
+        except Exception:
+            pass
+        return 1
 
     # =====================================================
     # CONFIGURACAO - SUPABASE
     # =====================================================
 
-    def carregar_configuracao(self) -> Configuracao:
-        """Carrega a configuracao do Supabase."""
+    def carregar_configuracao(self, empresa_id: int | None = None) -> Configuracao:
+        """Carrega a configuracao do estacionamento da empresa."""
 
-        resposta = (
-            supabase
-            .table("configuracao")
-            .select("*")
-            .eq("id", 1)
-            .single()
-            .execute()
-        )
+        query = supabase.table("configuracao").select("*")
+        if empresa_id is not None:
+            query = query.eq("empresa_id", empresa_id)
+        else:
+            query = query.eq("id", 1)
 
-        if not resposta.data:
-            raise RuntimeError(
-                "Configuracao do estacionamento nao encontrada no Supabase."
+        resposta = query.limit(1).execute()
+        linhas = resposta.data or []
+        if not linhas:
+            return self.garantir_configuracao(empresa_id)
+
+        return Configuracao.from_dict(linhas[0] if isinstance(linhas, list) else linhas)
+
+    def garantir_configuracao(
+        self,
+        empresa_id: int | None = None,
+        nome_estacionamento: str = "Estaciona Parking",
+        cnpj: str = "",
+    ) -> Configuracao:
+        """Garante uma configuracao para a empresa, criando se nao existir."""
+        if empresa_id is not None:
+            existente = (
+                supabase
+                .table("configuracao")
+                .select("*")
+                .eq("empresa_id", empresa_id)
+                .limit(1)
+                .execute()
             )
-
-        return Configuracao.from_dict(resposta.data)
-
-    def salvar_configuracao(self, config: Configuracao) -> None:
-        """Salva a configuracao no Supabase."""
+            if existente.data:
+                return Configuracao.from_dict(existente.data[0])
 
         dados = {
+            "nome_estacionamento": nome_estacionamento or "Estaciona Parking",
+            "cnpj": cnpj or "",
+            "total_vagas": 20,
+            "valor_primeira_hora": 5.0,
+            "valor_hora_adicional": 3.0,
+            "valor_mensal": 150.0,
+            "bloquear_sem_vaga": False,
+            "exigir_observacao": True,
+            "proximo_numero_ticket": 1,
+        }
+        if empresa_id is not None:
+            dados["empresa_id"] = empresa_id
+
+        inserido = supabase.table("configuracao").insert(dados).execute()
+        if inserido.data:
+            return Configuracao.from_dict(inserido.data[0])
+        return Configuracao(nome_estacionamento=nome_estacionamento, cnpj=cnpj, empresa_id=empresa_id)
+
+    def salvar_configuracao(self, config: Configuracao, empresa_id: int | None = None) -> None:
+        """Salva a configuracao no Supabase."""
+
+        eid = empresa_id if empresa_id is not None else config.empresa_id
+        dados = {
+            "nome_estacionamento": config.nome_estacionamento,
+            "cnpj": config.cnpj,
+            "telefone": config.telefone,
+            "endereco": config.endereco,
+            "cidade": config.cidade,
+            "estado": config.estado,
+            "cep": config.cep,
             "total_vagas": config.total_vagas,
+            "vagas_carro": config.vagas_carro,
+            "vagas_moto": config.vagas_moto,
+            "vagas_carro_grande": config.vagas_carro_grande,
+            "vagas_caminhonete": config.vagas_caminhonete,
             "valor_primeira_hora": config.valor_primeira_hora,
             "valor_hora_adicional": config.valor_hora_adicional,
             "valor_mensal": config.valor_mensal,
+            "horario_abertura": config.horario_abertura or None,
+            "horario_fechamento": config.horario_fechamento or None,
+            "cabecalho_ticket": config.cabecalho_ticket,
+            "rodape_ticket": config.rodape_ticket,
+            "bloquear_sem_vaga": config.bloquear_sem_vaga,
+            "exigir_observacao": config.exigir_observacao,
+            "pix_tipo": config.pix_tipo,
+            "pix_chave": config.pix_chave,
             "proximo_numero_ticket": config.proximo_numero_ticket,
         }
+        if eid is not None:
+            dados["empresa_id"] = eid
+
+        if config.id:
+            (
+                supabase
+                .table("configuracao")
+                .update(dados)
+                .eq("id", config.id)
+                .execute()
+            )
+            return
+
+        if eid is not None:
+            (
+                supabase
+                .table("configuracao")
+                .update(dados)
+                .eq("empresa_id", eid)
+                .execute()
+            )
+            return
 
         (
             supabase
@@ -149,4 +253,35 @@ class PersistenciaService:
 
         return data_obj.strftime(
             "%Y-%m-%d %H:%M:%S"
+        )
+
+    @staticmethod
+    def _converter_data_iso_para_interna(data: str | None) -> str | None:
+        """
+        Converte a data no formato ISO (retornado pelo Supabase):
+        YYYY-MM-DDTHH:MM:SS  (ou YYYY-MM-DD HH:MM:SS)
+
+        de volta para o formato interno do sistema:
+        DD/MM/YYYY HH:MM:SS
+        """
+
+        if not data:
+            return None
+
+        from datetime import datetime
+
+        # Aceita tanto o separador 'T' quanto o espaco entre data e hora
+        texto = str(data).replace("T", " ").strip()
+
+        # Pode vir com fracoes de segundo (ex: 2026-08-10 14:38:18.123)
+        if "." in texto:
+            texto = texto.split(".")[0]
+
+        data_obj = datetime.strptime(
+            texto,
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        return data_obj.strftime(
+            "%d/%m/%Y %H:%M:%S"
         )

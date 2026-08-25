@@ -18,10 +18,20 @@ FORMATO_DATA = "%d/%m/%Y %H:%M:%S"
 class EstacionamentoService:
     """Regras de negocio do estacionamento."""
 
-    def __init__(self):
+    def __init__(self, empresa_id: int | None = None):
         self.persistencia = PersistenciaService()
-        self.tickets: List[Ticket] = self.persistencia.carregar_tickets()
-        self.config: Configuracao = self.persistencia.carregar_configuracao()
+        self.empresa_id = empresa_id
+        self.tickets: List[Ticket] = []
+        self.config: Configuracao = Configuracao()
+        self.recarregar(empresa_id)
+
+    def recarregar(self, empresa_id: int | None = None) -> None:
+        """Recarrega tickets e configuracao da empresa ativa."""
+        self.empresa_id = empresa_id
+        self.tickets = self.persistencia.carregar_tickets(empresa_id)
+        self.config = self.persistencia.carregar_configuracao(empresa_id)
+        if empresa_id is not None:
+            self.config.empresa_id = empresa_id
 
     # ---------------------- ENTRADA ----------------------
 
@@ -46,26 +56,31 @@ class EstacionamentoService:
             return None  # Estacionamento cheio
 
         vaga_numero = self._proxima_vaga_disponivel()
+        numero = max(
+            self.config.proximo_numero_ticket,
+            self.persistencia.proximo_numero_global(),
+        )
 
         ticket = Ticket(
-            numero=self.config.proximo_numero_ticket,
+            numero=numero,
             placa=placa,
             entrada=datetime.now().strftime(FORMATO_DATA),
             vaga=vaga_numero,
             status="ABERTO",
             tipo_veiculo=(tipo_veiculo or "Carro").strip() or "Carro",
             observacoes=(observacoes or "").strip(),
+            empresa_id=self.empresa_id,
         )
 
         self.tickets.append(ticket)
-        self.config.proximo_numero_ticket += 1
+        self.config.proximo_numero_ticket = numero + 1
 
         self._salvar_tudo()
         return ticket
 
     # ---------------------- SAIDA ----------------------
 
-    def registrar_saida(self, identificador: str) -> Optional[Ticket]:
+    def registrar_saida(self, identificador: str, forma_pagamento: Optional[str] = None) -> Optional[Ticket]:
         """
         Registra a saida de um veiculo, calculando o valor a pagar.
         O identificador pode ser o numero do ticket ou a placa do veiculo.
@@ -79,6 +94,7 @@ class EstacionamentoService:
         ticket.saida = agora.strftime(FORMATO_DATA)
         ticket.valor = self.calcular_valor(ticket.entrada, ticket.saida)
         ticket.status = "FECHADO"
+        ticket.forma_pagamento = forma_pagamento
 
         self._salvar_tudo()
         return ticket
@@ -250,6 +266,8 @@ class EstacionamentoService:
 
         return {
             "no_patio_agora": self.vagas_ocupadas(),
+            "total_vagas": self.config.total_vagas,
+            "vagas_disponiveis": self.vagas_livres(),
             "faturamento_hoje": round(faturamento_hoje, 2),
             "saidas_hoje": saidas_hoje,
             "permanencia_media_minutos": permanencia_media_min,
@@ -257,29 +275,42 @@ class EstacionamentoService:
 
     # ---------------------- CONFIGURACAO ----------------------
 
-    def atualizar_configuracao(
-        self,
-        total_vagas: Optional[int] = None,
-        valor_primeira_hora: Optional[float] = None,
-        valor_hora_adicional: Optional[float] = None,
-        valor_mensal: Optional[float] = None,
-    ) -> Configuracao:
+    def atualizar_configuracao(self, **kwargs) -> Configuracao:
         """Atualiza os parametros de configuracao do estacionamento."""
-        if total_vagas is not None:
-            self.config.total_vagas = total_vagas
-        if valor_primeira_hora is not None:
-            self.config.valor_primeira_hora = valor_primeira_hora
-        if valor_hora_adicional is not None:
-            self.config.valor_hora_adicional = valor_hora_adicional
-        if valor_mensal is not None:
-            self.config.valor_mensal = valor_mensal
+        campos_texto = {
+            "nome_estacionamento", "cnpj", "telefone", "endereco",
+            "cidade", "estado", "cep", "horario_abertura",
+            "horario_fechamento", "cabecalho_ticket", "rodape_ticket",
+            "pix_tipo", "pix_chave",
+        }
+        campos_int = {
+            "total_vagas", "vagas_carro", "vagas_moto",
+            "vagas_carro_grande", "vagas_caminhonete",
+        }
+        campos_float = {
+            "valor_primeira_hora", "valor_hora_adicional", "valor_mensal",
+        }
+        campos_bool = {"bloquear_sem_vaga", "exigir_observacao"}
 
-        self.persistencia.salvar_configuracao(self.config)
+        for campo, valor in kwargs.items():
+            if valor is None or not hasattr(self.config, campo):
+                continue
+
+            if campo in campos_texto:
+                setattr(self.config, campo, str(valor).strip())
+            elif campo in campos_int:
+                setattr(self.config, campo, int(valor))
+            elif campo in campos_float:
+                setattr(self.config, campo, float(valor))
+            elif campo in campos_bool:
+                setattr(self.config, campo, bool(valor))
+
+        self.persistencia.salvar_configuracao(self.config, self.empresa_id)
         return self.config
 
     # ---------------------- PERSISTENCIA INTERNA ----------------------
 
     def _salvar_tudo(self) -> None:
-        """Salva tickets e configuracao em disco."""
-        self.persistencia.salvar_tickets(self.tickets)
-        self.persistencia.salvar_configuracao(self.config)
+        """Salva tickets e configuracao da empresa ativa."""
+        self.persistencia.salvar_tickets(self.tickets, self.empresa_id)
+        self.persistencia.salvar_configuracao(self.config, self.empresa_id)

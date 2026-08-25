@@ -27,6 +27,7 @@ class Cliente:
     data_inicio: str = ""               # Inicio da vigencia do plano mensal (dd/mm/aaaa)
     data_fim: str = ""                  # Fim da vigencia do plano mensal (dd/mm/aaaa)
     ativo: bool = True                  # True = plano/cliente ativo | False = desativado
+    empresa_id: int | None = None       # Empresa/CNPJ dono do cliente
     data_cadastro: str = field(default_factory=lambda: datetime.now().strftime(FORMATO_DATA_CADASTRO))
 
     def to_dict(self) -> dict:
@@ -45,5 +46,6 @@ class Cliente:
             data_inicio=dados.get("data_inicio", ""),
             data_fim=dados.get("data_fim", ""),
             ativo=dados.get("ativo", True),
+            empresa_id=dados.get("empresa_id"),
             data_cadastro=dados.get("data_cadastro"),
         )

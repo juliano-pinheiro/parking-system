@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Estaciona - Controle por ticket</title>
+<title id="titulo-sistema">Estaciona - Controle por ticket</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -24,7 +25,7 @@
       </svg>
     </span>
     <div class="brand-text">
-      <strong>Estaciona Parking</strong>
+      <strong id="nome-sistema">Estaciona Parking</strong>
     </div>
   </div>
 
@@ -38,6 +39,10 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>
       Visão Geral
     </a>
+    <a href="#" class="menu-item menu-item-master" data-view="view-empresas">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Empresas
+    </a>
     <a href="#" class="menu-item" data-view="view-usuarios">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Usuários
@@ -46,10 +51,66 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
       Clientes
     </a>
-    <a href="#" class="menu-item" data-view="view-relatorios">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Relatórios
-    </a>
+    <div class="menu-group">
+      <button type="button" class="menu-group-toggle" id="menu-group-financeiro">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Financeiro</span>
+        <svg class="menu-group-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="menu-group-items" id="menu-group-financeiro-items">
+        <div class="menu-subgroup-label">Operacional</div>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-financeiro">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Lançamentos
+        </a>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-caixa">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Caixa
+        </a>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-pagamentos">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M2 10h20M6 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Pagamentos
+        </a>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-formas-pagamento">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M2 10h20" stroke="currentColor" stroke-width="1.8"/></svg>
+          Formas de Pagamento
+        </a>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-cortesias">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Cortesias
+        </a>
+        <div class="menu-subgroup-label">Cadastros</div>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-mensalistas">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+          Mensalistas
+        </a>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-convenios">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Convênios
+        </a>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-contas-receber">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Contas a Receber
+        </a>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-descontos">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 12l-8 8-8-8 8-8 8 8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+          Descontos
+        </a>
+        <div class="menu-subgroup-label">Análise</div>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-dashboard-financeiro">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Dashboard Financeiro
+        </a>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-relatorios">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Relatórios
+        </a>
+        <a href="#" class="menu-item menu-item-sub" data-view="view-auditoria">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Auditoria
+        </a>
+      </div>
+    </div>
     <a href="#" class="menu-item" data-view="view-configuracoes">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 18.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Configurações
@@ -69,6 +130,24 @@
     <div class="header-info">
       <span class="header-date" id="header-data">--</span>
       <span class="header-count" id="header-contagem">0 veículo(s) no pátio</span>
+    </div>
+
+    <div class="header-user">
+      <span class="header-user-name" id="header-usuario-nome">--</span>
+      <span class="header-user-perfil" id="header-usuario-perfil">--</span>
+      <span class="header-empresa" id="header-empresa-nome" hidden></span>
+      <button type="button" class="header-logout" id="btn-trocar-empresa" title="Trocar de empresa" hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21h18M5 21V7l7-4 7 4v14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 9h1M14 9h1M9 13h1M14 13h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Trocar empresa
+      </button>
+      <button type="button" class="header-logout" id="btn-alterar-senha" title="Alterar senha">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Alterar senha
+      </button>
+      <button type="button" class="header-logout" id="btn-logout" title="Sair">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Sair
+      </button>
     </div>
   </header>
 
@@ -173,8 +252,8 @@
               <option value="Caminhonete">Caminhonete</option>
             </select>
 
-            <label for="input-observacoes">Observações (opcional)</label>
-            <input type="text" id="input-observacoes" placeholder="Cor, modelo, observação...">
+            <label for="input-observacoes">Observações (obrigatório)</label>
+            <input type="text" id="input-observacoes" placeholder="Cor, modelo, observação..." required>
 
             <button type="submit" class="btn-emitir">
               <span class="btn-plus">+</span> Emitir Ticket
@@ -213,6 +292,43 @@
       </section>
     </section>
 
+    <!-- ==================== EMPRESAS ==================== -->
+    <section class="view" id="view-empresas">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Empresas / CNPJs
+          </h2>
+          <button type="button" class="btn-novo" id="btn-nova-empresa">
+            <span class="btn-plus">+</span> Nova empresa
+          </button>
+        </div>
+        <p class="config-hint" style="margin: 0 0 16px;">
+          Gerencie os estacionamentos vinculados a CNPJs. Cada empresa possui seus próprios usuários e dados.
+        </p>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome fantasia</th>
+                <th>CNPJ</th>
+                <th>Razão social</th>
+                <th>Cidade/UF</th>
+                <th>Usuários</th>
+                <th>Status</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="empresas-tbody">
+              <tr><td colspan="7" class="empty-state">Carregando empresas...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <!-- ==================== USUARIOS ==================== -->
     <section class="view" id="view-usuarios">
       <div class="panel">
@@ -233,6 +349,7 @@
                 <th>Nome</th>
                 <th>E-mail</th>
                 <th>Perfil</th>
+                <th>Empresa</th>
                 <th>Status</th>
                 <th>Cadastro</th>
                 <th class="col-acoes">Ações</th>
@@ -240,7 +357,7 @@
             </thead>
             <tbody id="tabela-usuarios">
               <tr>
-                <td colspan="6" class="table-empty">Carregando usuários...</td>
+                <td colspan="7" class="table-empty">Carregando usuários...</td>
               </tr>
             </tbody>
           </table>
@@ -248,6 +365,65 @@
         </div>
       </div>
     </section>
+
+    <!-- ==================== MODAL EMPRESA ==================== -->
+    <div class="modal-overlay" id="modal-empresa" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title" id="modal-empresa-titulo">Nova empresa</h3>
+          <button type="button" class="modal-close" id="modal-empresa-fechar" aria-label="Fechar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <form id="form-empresa" class="modal-form" autocomplete="off">
+          <input type="hidden" id="input-empresa-id">
+
+          <label for="input-empresa-cnpj">CNPJ</label>
+          <input type="text" id="input-empresa-cnpj" placeholder="00.000.000/0000-00" required>
+
+          <label for="input-empresa-nome-fantasia">Nome fantasia</label>
+          <input type="text" id="input-empresa-nome-fantasia" placeholder="Ex: Estacionamento Centro" required>
+
+          <label for="input-empresa-razao-social">Razão social</label>
+          <input type="text" id="input-empresa-razao-social" placeholder="Ex: Estacionamento Centro LTDA" required>
+
+          <label for="input-empresa-telefone">Telefone</label>
+          <input type="text" id="input-empresa-telefone" placeholder="(00) 00000-0000">
+
+          <label for="input-empresa-email">E-mail</label>
+          <input type="email" id="input-empresa-email" placeholder="contato@empresa.com">
+
+          <label for="input-empresa-endereco">Endereço</label>
+          <input type="text" id="input-empresa-endereco" placeholder="Rua, número, bairro">
+
+          <div class="config-grid" style="grid-template-columns: 1fr 1fr;">
+            <div>
+              <label for="input-empresa-cidade">Cidade</label>
+              <input type="text" id="input-empresa-cidade" placeholder="Cidade">
+            </div>
+            <div>
+              <label for="input-empresa-estado">UF</label>
+              <input type="text" id="input-empresa-estado" maxlength="2" placeholder="UF">
+            </div>
+          </div>
+
+          <label for="input-empresa-cep">CEP</label>
+          <input type="text" id="input-empresa-cep" placeholder="00000-000">
+
+          <label for="input-empresa-ativo">Status</label>
+          <select id="input-empresa-ativo">
+            <option value="true">Ativa</option>
+            <option value="false">Inativa</option>
+          </select>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-cancelar" id="btn-empresa-cancelar">Cancelar</button>
+            <button type="submit" class="btn-emitir btn-salvar" id="btn-empresa-salvar">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <!-- ==================== MODAL USUARIO ==================== -->
     <div class="modal-overlay" id="modal-usuario" hidden>
@@ -268,10 +444,28 @@
           <label for="input-usuario-email">E-mail</label>
           <input type="email" id="input-usuario-email" placeholder="email@exemplo.com" required>
 
+          <label for="input-usuario-senha">Senha</label>
+          <input type="password" id="input-usuario-senha" placeholder="Defina uma senha de acesso" autocomplete="new-password">
+
+          <label class="checkbox-field">
+            <input type="checkbox" id="input-usuario-trocar-senha">
+            <span>Solicitar troca de senha no primeiro acesso</span>
+          </label>
+
           <label for="input-usuario-perfil">Perfil</label>
           <select id="input-usuario-perfil">
             <option value="admin">Administrador</option>
             <option value="operador">Operador</option>
+          </select>
+
+          <label class="checkbox-field" id="campo-usuario-master">
+            <input type="checkbox" id="input-usuario-master">
+            <span>Usuário master (acesso a todas as empresas)</span>
+          </label>
+
+          <label for="input-usuario-empresa" id="campo-usuario-empresa-label">Empresa / CNPJ</label>
+          <select id="input-usuario-empresa">
+            <option value="">Selecione a empresa...</option>
           </select>
 
           <label for="input-usuario-ativo">Status</label>
@@ -283,6 +477,83 @@
           <div class="modal-actions">
             <button type="button" class="btn-cancelar" id="btn-usuario-cancelar">Cancelar</button>
             <button type="submit" class="btn-emitir btn-salvar" id="btn-usuario-salvar">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL PERFIL ==================== -->
+    <div class="modal-overlay" id="modal-perfil" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title" id="modal-perfil-titulo">Novo perfil</h3>
+          <button type="button" class="modal-close" id="modal-perfil-fechar" aria-label="Fechar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <form id="form-perfil" class="modal-form" autocomplete="off">
+          <input type="hidden" id="input-perfil-id">
+
+          <label for="input-perfil-nome">Nome do perfil</label>
+          <input type="text" id="input-perfil-nome" placeholder="Ex: Gerencia" required>
+
+          <label for="input-perfil-codigo">Codigo (identificador unico)</label>
+          <input type="text" id="input-perfil-codigo" placeholder="Ex: gerencia" required>
+          <p class="config-hint">O codigo e usado internamente e nao pode ser alterado depois. Use apenas letras, numeros e underscores.</p>
+
+          <label for="input-perfil-descricao">Descricao</label>
+          <input type="text" id="input-perfil-descricao" placeholder="Ex: Acesso a gestao financeira e operacional">
+
+          <div class="modal-actions">
+            <button type="button" class="btn-cancelar" id="btn-perfil-cancelar">Cancelar</button>
+            <button type="submit" class="btn-emitir btn-salvar" id="btn-perfil-salvar">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL TROCAR EMPRESA ==================== -->
+    <div class="modal-overlay" id="modal-trocar-empresa" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title">Trocar de empresa</h3>
+          <button type="button" class="modal-close" id="modal-trocar-empresa-fechar" aria-label="Fechar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div class="modal-body modal-body-padded">
+          <p class="modal-hint">Selecione a empresa/CNPJ que deseja acessar.</p>
+          <div id="trocar-empresa-lista" class="trocar-empresa-lista">
+            <p class="modal-hint">Carregando empresas...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL ALTERAR SENHA ==================== -->
+    <div class="modal-overlay" id="modal-alterar-senha" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title">Alterar senha</h3>
+          <button type="button" class="modal-close" id="modal-alterar-senha-fechar" aria-label="Fechar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <form id="form-alterar-senha" class="modal-form" autocomplete="off">
+          <label for="input-senha-atual">Senha atual</label>
+          <input type="password" id="input-senha-atual" placeholder="Senha atual" autocomplete="current-password" required>
+
+          <label for="input-nova-senha">Nova senha</label>
+          <input type="password" id="input-nova-senha" placeholder="Nova senha" autocomplete="new-password" required>
+
+          <label for="input-confirmar-senha">Confirmar nova senha</label>
+          <input type="password" id="input-confirmar-senha" placeholder="Confirme a nova senha" autocomplete="new-password" required>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-cancelar" id="btn-alterar-senha-cancelar">Cancelar</button>
+            <button type="submit" class="btn-emitir btn-salvar" id="btn-alterar-senha-salvar">Salvar</button>
           </div>
         </form>
       </div>
@@ -369,31 +640,216 @@
       </div>
     </div>
 
+    <!-- ==================== FINANCEIRO ==================== -->
+    <section class="view" id="view-financeiro">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Financeiro
+          </h2>
+          <button type="button" class="btn-novo" id="btn-novo-lancamento">
+            <span class="btn-plus">+</span> Novo lançamento
+          </button>
+        </div>
+
+        <div class="periodo-filtro">
+          <label for="filtro-financeiro-periodo">Período</label>
+          <select id="filtro-financeiro-periodo">
+            <option value="diario">Diário</option>
+            <option value="semanal">Semanal</option>
+            <option value="mensal">Mensal</option>
+          </select>
+        </div>
+
+        <div class="summary-grid fin-summary">
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Entradas</span>
+              <span class="summary-value" id="fin-total-entradas">R$ 0,00</span>
+            </div>
+            <div class="summary-icon icon-green">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 17l6-6 4 4 7-7M20 8h-4v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Saídas</span>
+              <span class="summary-value" id="fin-total-saidas">R$ 0,00</span>
+            </div>
+            <div class="summary-icon icon-red">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7l6 6 4-4 7 7M20 16h-4v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Saldo do período</span>
+              <span class="summary-value" id="fin-saldo">R$ 0,00</span>
+            </div>
+            <div class="summary-icon icon-blue">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Tipo</th>
+                <th>Forma de pagamento</th>
+                <th>Valor</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-financeiro">
+              <tr>
+                <td colspan="6" class="table-empty">Carregando lançamentos...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="financeiro-empty" hidden>Nenhum lançamento no período.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== MODAL LANCAMENTO ==================== -->
+    <div class="modal-overlay" id="modal-lancamento" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title" id="modal-lancamento-titulo">Novo lançamento</h3>
+          <button type="button" class="modal-close" id="modal-lancamento-fechar" aria-label="Fechar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <form id="form-lancamento" class="modal-form" autocomplete="off">
+          <input type="hidden" id="input-lancamento-id">
+
+          <label for="input-lancamento-tipo">Tipo</label>
+          <select id="input-lancamento-tipo">
+            <option value="entrada">Entrada (receita)</option>
+            <option value="saida">Saída (despesa)</option>
+          </select>
+
+          <label for="input-lancamento-descricao">Descrição</label>
+          <input type="text" id="input-lancamento-descricao" placeholder="Ex.: Compra de material" required>
+
+          <label for="input-lancamento-valor">Valor (R$)</label>
+          <input type="number" id="input-lancamento-valor" min="0" step="0.01" placeholder="0,00" required>
+
+          <label for="input-lancamento-forma">Forma de pagamento</label>
+          <select id="input-lancamento-forma">
+            <option value="dinheiro">Dinheiro</option>
+            <option value="pix">Pix</option>
+            <option value="cartao_credito">Cartão de crédito</option>
+            <option value="cartao_debito">Cartão de débito</option>
+          </select>
+
+          <label for="input-lancamento-data">Data</label>
+          <input type="text" id="input-lancamento-data" placeholder="dd/mm/aaaa hh:mm:ss">
+
+          <div class="modal-actions">
+            <button type="button" class="btn-cancelar" id="btn-lancamento-cancelar">Cancelar</button>
+            <button type="submit" class="btn-emitir btn-salvar" id="btn-lancamento-salvar">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- ==================== RELATORIOS ==================== -->
     <section class="view" id="view-relatorios">
       <div class="panel">
-        <h2 class="panel-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Relatórios
-        </h2>
-        <form id="form-relatorio-modal" autocomplete="off">
-          <label for="input-data-relatorio">Filtrar por data</label>
-          <input type="text" id="input-data-relatorio" placeholder="dd/mm/aaaa (deixe em branco para tudo)">
-          <button type="submit" class="btn-emitir">Gerar relatório</button>
-        </form>
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Relatórios
+          </h2>
+        </div>
 
-        <div class="modal-stats" id="modal-stats" hidden>
-          <div class="modal-stat">
-            <span class="modal-stat-label">Entradas</span>
-            <span class="modal-stat-value" id="rel-total-entradas">0</span>
+        <div class="periodo-filtro">
+          <label for="filtro-relatorio-agrupamento">Agrupar por</label>
+          <select id="filtro-relatorio-agrupamento">
+            <option value="dia">Dia (últimos 30)</option>
+            <option value="semana">Semana (últimas 12)</option>
+            <option value="mes">Mês (últimos 12)</option>
+          </select>
+          <button type="button" class="btn-emitir btn-exportar" id="btn-exportar-relatorio">Exportar CSV</button>
+          <button type="button" class="btn-emitir btn-exportar btn-exportar-pdf" id="btn-exportar-relatorio-pdf">Exportar PDF</button>
+        </div>
+
+        <div class="chart-box">
+          <canvas id="grafico-relatorio" height="120"></canvas>
+        </div>
+
+        <div class="summary-grid rel-summary">
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Faturamento</span>
+              <span class="summary-value" id="rel-faturamento">R$ 0,00</span>
+            </div>
+            <div class="summary-icon icon-yellow">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
           </div>
-          <div class="modal-stat">
-            <span class="modal-stat-label">Saídas</span>
-            <span class="modal-stat-value" id="rel-total-saidas">0</span>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Entradas</span>
+              <span class="summary-value" id="rel-total-entradas">0</span>
+            </div>
+            <div class="summary-icon icon-blue">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="11" width="18" height="6" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7.5" cy="17" r="1.4" fill="currentColor"/><circle cx="16.5" cy="17" r="1.4" fill="currentColor"/></svg>
+            </div>
           </div>
-          <div class="modal-stat">
-            <span class="modal-stat-label">Faturamento</span>
-            <span class="modal-stat-value" id="rel-faturamento">R$ 0,00</span>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Saídas</span>
+              <span class="summary-value" id="rel-total-saidas">0</span>
+            </div>
+            <div class="summary-icon icon-green">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 17l6-6 4 4 7-7M20 8h-4v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Ticket médio</span>
+              <span class="summary-value" id="rel-ticket-medio">R$ 0,00</span>
+            </div>
+            <div class="summary-icon icon-purple">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="rel-formas">
+          <h3 class="config-section-title">Faturamento por forma de pagamento</h3>
+          <div class="formas-grid" id="rel-formas-grid">
+            <p class="empty-state" id="rel-formas-empty">Nenhum dado no período.</p>
+          </div>
+        </div>
+
+        <div class="rel-movimentacoes">
+          <h3 class="config-section-title">Movimentações do período</h3>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Tipo</th>
+                  <th>Forma de pagamento</th>
+                  <th>Valor</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-rel-movimentacoes">
+                <tr>
+                  <td colspan="5" class="table-empty">Carregando movimentações...</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="empty-state" id="rel-movimentacoes-empty" hidden>Nenhuma movimentação no período.</p>
           </div>
         </div>
       </div>
@@ -407,37 +863,444 @@
           Configurações
         </h2>
 
+        <div class="tabs" id="tabs-config">
+          <button type="button" class="tab active" data-config-tab="geral">Geral</button>
+          <button type="button" class="tab" data-config-tab="precos">Preços</button>
+          <button type="button" class="tab" data-config-tab="tabela">Tabela de Preços</button>
+          <button type="button" class="tab" data-config-tab="ticket">Cupom / Ticket</button>
+          <button type="button" class="tab" data-config-tab="formas">Formas de Pagamento</button>
+          <button type="button" class="tab" data-config-tab="permissoes">Funções e Permissões</button>
+        </div>
+
         <form id="form-configuracoes" autocomplete="off">
-          <div class="config-section">
-            <h3 class="config-section-title">Valores por hora (avulsos)</h3>
-            <div class="config-grid">
-              <div class="config-field">
-                <label for="input-config-primeira-hora">Primeira hora (ou fração)</label>
-                <input type="number" id="input-config-primeira-hora" min="0" step="0.01" placeholder="0,00" required>
+
+          <!-- ============ ABA: GERAL ============ -->
+          <div class="config-tab-pane" data-config-pane="geral">
+            <div class="config-section">
+              <h3 class="config-section-title">Identificação do estacionamento</h3>
+              <p class="config-hint">Dados que aparecem no cabeçalho do sistema, relatórios e cupom.</p>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label for="input-config-nome">Nome do estacionamento</label>
+                  <input type="text" id="input-config-nome" placeholder="Estaciona Parking">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-cnpj">CNPJ</label>
+                  <input type="text" id="input-config-cnpj" placeholder="00.000.000/0000-00">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-telefone">Telefone</label>
+                  <input type="text" id="input-config-telefone" placeholder="(00) 00000-0000">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-endereco">Endereço</label>
+                  <input type="text" id="input-config-endereco" placeholder="Rua, número, bairro">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-cidade">Cidade</label>
+                  <input type="text" id="input-config-cidade" placeholder="Cidade">
+                </div>
+                <div class="config-field config-field-duo">
+                  <div class="config-field">
+                    <label for="input-config-estado">UF</label>
+                    <input type="text" id="input-config-estado" maxlength="2" placeholder="UF">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-cep">CEP</label>
+                    <input type="text" id="input-config-cep" placeholder="00000-000">
+                  </div>
+                </div>
               </div>
-              <div class="config-field">
-                <label for="input-config-hora-adicional">Hora adicional (ou fração)</label>
-                <input type="number" id="input-config-hora-adicional" min="0" step="0.01" placeholder="0,00" required>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Funcionamento</h3>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label for="input-config-horario-abertura">Horário de abertura</label>
+                  <input type="time" id="input-config-horario-abertura">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-horario-fechamento">Horário de fechamento</label>
+                  <input type="time" id="input-config-horario-fechamento">
+                </div>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Vagas</h3>
+              <p class="config-hint">Total de vagas e vagas por tipo de veículo (deixe 0 para não controlar por tipo).</p>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label for="input-config-total-vagas">Total de vagas</label>
+                  <input type="number" id="input-config-total-vagas" min="1" step="1" placeholder="0" required>
+                </div>
+                <div class="config-field">
+                  <label for="input-config-vagas-carro">Vagas para carro</label>
+                  <input type="number" id="input-config-vagas-carro" min="0" step="1" placeholder="0">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-vagas-moto">Vagas para moto</label>
+                  <input type="number" id="input-config-vagas-moto" min="0" step="1" placeholder="0">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-vagas-carro-grande">Vagas para carro grande</label>
+                  <input type="number" id="input-config-vagas-carro-grande" min="0" step="1" placeholder="0">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-vagas-caminhonete">Vagas para caminhonete</label>
+                  <input type="number" id="input-config-vagas-caminhonete" min="0" step="1" placeholder="0">
+                </div>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Regras de operação</h3>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="input-config-bloquear-sem-vaga">
+                    Bloquear entrada quando não houver vaga disponível
+                  </label>
+                </div>
+                <div class="config-field">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="input-config-exigir-observacao">
+                    Tornar o campo "Observações" obrigatório no cadastro de ticket
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Integração PIX</h3>
+              <p class="config-hint">Configure a chave PIX para futura integração com pagamentos.</p>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label for="input-config-pix-tipo">Tipo de chave</label>
+                  <select id="input-config-pix-tipo">
+                    <option value="">Selecione...</option>
+                    <option value="cpf">CPF</option>
+                    <option value="cnpj">CNPJ</option>
+                    <option value="telefone">Telefone</option>
+                    <option value="email">E-mail</option>
+                    <option value="aleatoria">Chave aleatória</option>
+                  </select>
+                </div>
+                <div class="config-field">
+                  <label for="input-config-pix-chave">Chave PIX</label>
+                  <input type="text" id="input-config-pix-chave" placeholder="Sua chave PIX">
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="config-section">
-            <h3 class="config-section-title">Mensalistas</h3>
-            <div class="config-grid">
-              <div class="config-field">
-                <label for="input-config-valor-mensal">Valor do plano mensal</label>
-                <input type="number" id="input-config-valor-mensal" min="0" step="0.01" placeholder="0,00" required>
+          <!-- ============ ABA: PRECOS ============ -->
+          <div class="config-tab-pane" data-config-pane="precos" hidden>
+            <div class="config-section">
+              <h3 class="config-section-title">Valores por hora (avulsos)</h3>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label for="input-config-primeira-hora">Primeira hora (ou fração)</label>
+                  <input type="number" id="input-config-primeira-hora" min="0" step="0.01" placeholder="0,00" required>
+                </div>
+                <div class="config-field">
+                  <label for="input-config-hora-adicional">Hora adicional (ou fração)</label>
+                  <input type="number" id="input-config-hora-adicional" min="0" step="0.01" placeholder="0,00" required>
+                </div>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Mensalistas</h3>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label for="input-config-valor-mensal">Valor do plano mensal</label>
+                  <input type="number" id="input-config-valor-mensal" min="0" step="0.01" placeholder="0,00" required>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="config-section">
-            <h3 class="config-section-title">Vagas</h3>
-            <div class="config-grid">
-              <div class="config-field">
-                <label for="input-config-total-vagas">Total de vagas</label>
-                <input type="number" id="input-config-total-vagas" min="1" step="1" placeholder="0" required>
+          <!-- ============ ABA: TABELA DE PRECOS ============ -->
+          <div class="config-tab-pane" data-config-pane="tabela" hidden>
+            <div class="config-section">
+              <h3 class="config-section-title">Regras gerais de cobrança</h3>
+              <p class="config-hint">Defina o fracionamento, tarifa mínima, meia estadia, tolerância e valores de períodos especiais.</p>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label for="input-config-tp-fracionamento">Fracionamento (minutos)</label>
+                  <select id="input-config-tp-fracionamento">
+                    <option value="15">15 minutos</option>
+                    <option value="30">30 minutos</option>
+                    <option value="60" selected>60 minutos (1 hora)</option>
+                  </select>
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-tarifa-minima">Tarifa mínima</label>
+                  <input type="number" id="input-config-tp-tarifa-minima" min="0" step="0.01" placeholder="0,00">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-meia-min">Meia estadia (até minutos)</label>
+                  <input type="number" id="input-config-tp-meia-min" min="0" step="1" placeholder="0">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-meia-valor">Valor da meia estadia</label>
+                  <input type="number" id="input-config-tp-meia-valor" min="0" step="0.01" placeholder="0,00">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-tolerancia">Tolerância (minutos)</label>
+                  <input type="number" id="input-config-tp-tolerancia" min="0" step="1" placeholder="0">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-noturno">Valor noturno</label>
+                  <input type="number" id="input-config-tp-noturno" min="0" step="0.01" placeholder="0,00">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-fim-semana">Fim de semana</label>
+                  <input type="number" id="input-config-tp-fim-semana" min="0" step="0.01" placeholder="0,00">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-feriados">Feriados</label>
+                  <input type="number" id="input-config-tp-feriados" min="0" step="0.01" placeholder="0,00">
+                </div>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Preços por tipo de veículo</h3>
+              <p class="config-hint">Configure os valores de cada tipo de veículo. Deixe em branco para usar o valor do tipo "Carro".</p>
+              <div class="tp-tipo-tabs" id="tp-tipo-tabs">
+                <button type="button" class="tp-tipo-tab active" data-tp-tipo="carro">Carro</button>
+                <button type="button" class="tp-tipo-tab" data-tp-tipo="moto">Moto</button>
+                <button type="button" class="tp-tipo-tab" data-tp-tipo="carro_grande">Carro Grande</button>
+                <button type="button" class="tp-tipo-tab" data-tp-tipo="caminhonete">Caminhonete</button>
+              </div>
+
+              <!-- CARRO (campos padrao) -->
+              <div class="tp-tipo-pane" data-tp-pane="carro">
+                <div class="config-grid">
+                  <div class="config-field">
+                    <label for="input-config-tp-carro-primeira">Primeira hora (ou fração)</label>
+                    <input type="number" id="input-config-tp-carro-primeira" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-carro-adicional">Hora adicional</label>
+                    <input type="number" id="input-config-tp-carro-adicional" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-carro-diaria">Diária</label>
+                    <input type="number" id="input-config-tp-carro-diaria" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-carro-minuto">Valor por minuto</label>
+                    <input type="number" id="input-config-tp-carro-minuto" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-carro-max">Valor máximo diário</label>
+                    <input type="number" id="input-config-tp-carro-max" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-carro-mensal">Mensal</label>
+                    <input type="number" id="input-config-tp-carro-mensal" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                </div>
+              </div>
+
+              <!-- MOTO -->
+              <div class="tp-tipo-pane" data-tp-pane="moto" hidden>
+                <div class="config-grid">
+                  <div class="config-field">
+                    <label for="input-config-tp-moto-primeira">Primeira hora (ou fração)</label>
+                    <input type="number" id="input-config-tp-moto-primeira" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-moto-adicional">Hora adicional</label>
+                    <input type="number" id="input-config-tp-moto-adicional" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-moto-diaria">Diária</label>
+                    <input type="number" id="input-config-tp-moto-diaria" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-moto-minuto">Valor por minuto</label>
+                    <input type="number" id="input-config-tp-moto-minuto" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-moto-max">Valor máximo diário</label>
+                    <input type="number" id="input-config-tp-moto-max" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-moto-mensal">Mensal</label>
+                    <input type="number" id="input-config-tp-moto-mensal" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                </div>
+              </div>
+
+              <!-- CARRO GRANDE -->
+              <div class="tp-tipo-pane" data-tp-pane="carro_grande" hidden>
+                <div class="config-grid">
+                  <div class="config-field">
+                    <label for="input-config-tp-cg-primeira">Primeira hora (ou fração)</label>
+                    <input type="number" id="input-config-tp-cg-primeira" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cg-adicional">Hora adicional</label>
+                    <input type="number" id="input-config-tp-cg-adicional" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cg-diaria">Diária</label>
+                    <input type="number" id="input-config-tp-cg-diaria" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cg-minuto">Valor por minuto</label>
+                    <input type="number" id="input-config-tp-cg-minuto" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cg-max">Valor máximo diário</label>
+                    <input type="number" id="input-config-tp-cg-max" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cg-mensal">Mensal</label>
+                    <input type="number" id="input-config-tp-cg-mensal" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                </div>
+              </div>
+
+              <!-- CAMINHONETE -->
+              <div class="tp-tipo-pane" data-tp-pane="caminhonete" hidden>
+                <div class="config-grid">
+                  <div class="config-field">
+                    <label for="input-config-tp-cam-primeira">Primeira hora (ou fração)</label>
+                    <input type="number" id="input-config-tp-cam-primeira" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cam-adicional">Hora adicional</label>
+                    <input type="number" id="input-config-tp-cam-adicional" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cam-diaria">Diária</label>
+                    <input type="number" id="input-config-tp-cam-diaria" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cam-minuto">Valor por minuto</label>
+                    <input type="number" id="input-config-tp-cam-minuto" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cam-max">Valor máximo diário</label>
+                    <input type="number" id="input-config-tp-cam-max" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                  <div class="config-field">
+                    <label for="input-config-tp-cam-mensal">Mensal</label>
+                    <input type="number" id="input-config-tp-cam-mensal" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============ ABA: CUPOM / TICKET ============ -->
+          <div class="config-tab-pane" data-config-pane="ticket" hidden>
+            <div class="config-section">
+              <h3 class="config-section-title">Personalização do cupom</h3>
+              <p class="config-hint">Defina o texto exibido no topo e no rodapé do ticket de estacionamento.</p>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label for="input-config-cabecalho-ticket">Cabeçalho do ticket</label>
+                  <textarea id="input-config-cabecalho-ticket" rows="4" placeholder="Texto que aparece no topo do ticket. Ex: Agradecemos a preferência!"></textarea>
+                </div>
+                <div class="config-field">
+                  <label for="input-config-rodape-ticket">Rodapé do ticket</label>
+                  <textarea id="input-config-rodape-ticket" rows="4" placeholder="Texto que aparece no final do ticket. Ex: Guarde seu ticket. Perda do ticket paga taxa."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Pré-visualização</h3>
+              <div class="ticket-preview" id="ticket-preview">
+                <div class="ticket-preview-header">
+                  <strong id="ticket-preview-nome">Estaciona Parking</strong>
+                  <span id="ticket-preview-endereco"></span>
+                  <span id="ticket-preview-telefone"></span>
+                </div>
+                <div class="ticket-preview-divider"></div>
+                <div class="ticket-preview-body">
+                  <div class="ticket-preview-line">
+                    <span>Ticket Nº</span>
+                    <strong>000001</strong>
+                  </div>
+                  <div class="ticket-preview-line">
+                    <span>Entrada</span>
+                    <strong>01/01/2026 12:00:00</strong>
+                  </div>
+                  <div class="ticket-preview-line">
+                    <span>Placa</span>
+                    <strong>ABC1D23</strong>
+                  </div>
+                  <div class="ticket-preview-line">
+                    <span>Vaga</span>
+                    <strong>1</strong>
+                  </div>
+                </div>
+                <div class="ticket-preview-divider"></div>
+                <div class="ticket-preview-footer" id="ticket-preview-rodape"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============ ABA: FORMAS DE PAGAMENTO ============ -->
+          <div class="config-tab-pane" data-config-pane="formas" hidden>
+            <div class="config-section">
+              <h3 class="config-section-title">Formas de pagamento</h3>
+              <p class="config-hint">Gerencie as formas de pagamento aceitas (Dinheiro, PIX, Cartão, Convênio, Mensalista, Cortesia, etc.).</p>
+              <button type="button" class="btn-novo" id="btn-config-ir-formas">
+                <span class="btn-plus">+</span> Gerenciar formas de pagamento
+              </button>
+            </div>
+          </div>
+
+          <!-- ============ ABA: FUNCOES E PERMISSOES ============ -->
+          <div class="config-tab-pane" data-config-pane="permissoes" hidden>
+            <div class="config-section">
+              <h3 class="config-section-title">Perfis de acesso</h3>
+              <p class="config-hint">Crie perfis personalizados (Gerencia, Supervisao, Manobrista etc.) e defina o que cada um pode fazer no sistema. O perfil <strong>Administrador</strong> sempre tem acesso total e nao pode ser alterado.</p>
+
+              <div class="permissoes-toolbar">
+                <div class="permissoes-toolbar-left">
+                  <span class="permissoes-toolbar-title">Perfis cadastrados</span>
+                  <span class="permissoes-toolbar-sub">Clique em um perfil para editar suas permissoes</span>
+                </div>
+                <div class="permissoes-toolbar-right">
+                  <button type="button" class="btn-novo" id="btn-novo-perfil">
+                    <span class="btn-plus">+</span> Novo perfil
+                  </button>
+                </div>
+              </div>
+
+              <div id="perfis-container" class="perfis-container">
+                <p class="config-hint">Carregando perfis...</p>
+              </div>
+            </div>
+
+            <div class="config-section" id="permissoes-matriz-section">
+              <div class="permissoes-toolbar">
+                <div class="permissoes-toolbar-left">
+                  <span class="permissoes-toolbar-title" id="permissoes-matriz-titulo">Permissoes</span>
+                  <span class="permissoes-toolbar-sub">Marque as acoes permitidas para o perfil selecionado</span>
+                </div>
+                <div class="permissoes-toolbar-right">
+                  <button type="button" class="btn-novo" id="btn-restaurar-permissoes">Restaurar padrao</button>
+                </div>
+              </div>
+
+              <div id="permissoes-container" class="permissoes-container">
+                <p class="config-hint">Selecione um perfil para editar suas permissoes.</p>
+              </div>
+
+              <div class="permissoes-footer">
+                <button type="button" class="btn-secundario" id="btn-cancelar-permissoes">Cancelar</button>
+                <button type="button" class="btn-emitir" id="btn-salvar-permissoes">Salvar permissoes</button>
               </div>
             </div>
           </div>
@@ -447,7 +1310,794 @@
       </div>
     </section>
 
+    <!-- ==================== FORMAS DE PAGAMENTO ==================== -->
+    <section class="view" id="view-formas-pagamento">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M2 10h20" stroke="currentColor" stroke-width="1.8"/></svg>
+            Formas de Pagamento
+          </h2>
+          <button type="button" class="btn-novo" id="btn-novo-forma">
+            <span class="btn-plus">+</span> Nova forma
+          </button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Código</th>
+                <th>Status</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-formas-pagamento">
+              <tr>
+                <td colspan="4" class="table-empty">Carregando formas de pagamento...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="formas-pagamento-empty" hidden>Nenhuma forma de pagamento cadastrada.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CAIXA ==================== -->
+    <section class="view" id="view-caixa">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Caixa
+          </h2>
+          <div class="panel-actions">
+            <button type="button" class="btn-novo" id="btn-abrir-caixa">
+              <span class="btn-plus">+</span> Abrir caixa
+            </button>
+            <button type="button" class="btn-novo" id="btn-sangria" hidden>
+              <span class="btn-plus">−</span> Sangria
+            </button>
+            <button type="button" class="btn-novo" id="btn-suprimento" hidden>
+              <span class="btn-plus">+</span> Suprimento
+            </button>
+            <button type="button" class="btn-novo" id="btn-fechar-caixa" hidden>
+              <span class="btn-plus">✓</span> Fechar caixa
+            </button>
+          </div>
+        </div>
+
+        <div class="caixa-status" id="caixa-status">
+          <p class="empty-state">Nenhum caixa aberto. Clique em "Abrir caixa" para iniciar o expediente.</p>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Operador</th>
+                <th>Abertura</th>
+                <th>Fechamento</th>
+                <th>Valor inicial</th>
+                <th>Esperado</th>
+                <th>Contado</th>
+                <th>Diferença</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-caixas">
+              <tr>
+                <td colspan="8" class="table-empty">Carregando caixas...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== PAGAMENTOS ==================== -->
+    <section class="view" id="view-pagamentos">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M2 10h20M6 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Pagamentos
+          </h2>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Ticket</th>
+                <th>Data</th>
+                <th>Valor</th>
+                <th>Forma</th>
+                <th>Operador</th>
+                <th>Status</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-pagamentos">
+              <tr>
+                <td colspan="7" class="table-empty">Carregando pagamentos...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="pagamentos-empty" hidden>Nenhum pagamento registrado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== MENSALISTAS ==================== -->
+    <section class="view" id="view-mensalistas">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+            Mensalistas
+          </h2>
+          <button type="button" class="btn-novo" id="btn-novo-mensalista">
+            <span class="btn-plus">+</span> Novo mensalista
+          </button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>CPF/CNPJ</th>
+                <th>Telefone</th>
+                <th>Valor mensal</th>
+                <th>Vencimento</th>
+                <th>Status</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-mensalistas">
+              <tr>
+                <td colspan="7" class="table-empty">Carregando mensalistas...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="mensalistas-empty" hidden>Nenhum mensalista cadastrado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CONVENIOS ==================== -->
+    <section class="view" id="view-convenios">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Convênios
+          </h2>
+          <button type="button" class="btn-novo" id="btn-novo-convenio">
+            <span class="btn-plus">+</span> Novo convênio
+          </button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>CNPJ</th>
+                <th>Contato</th>
+                <th>Status</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-convenios">
+              <tr>
+                <td colspan="5" class="table-empty">Carregando convênios...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="convenios-empty" hidden>Nenhum convênio cadastrado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CONTAS A RECEBER ==================== -->
+    <section class="view" id="view-contas-receber">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Contas a Receber
+          </h2>
+          <button type="button" class="btn-novo" id="btn-novo-conta">
+            <span class="btn-plus">+</span> Nova conta
+          </button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Convênio</th>
+                <th>Descrição</th>
+                <th>Valor</th>
+                <th>Vencimento</th>
+                <th>Status</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-contas-receber">
+              <tr>
+                <td colspan="6" class="table-empty">Carregando contas a receber...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="contas-receber-empty" hidden>Nenhuma conta a receber.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== DESCONTOS ==================== -->
+    <section class="view" id="view-descontos">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 12l-8 8-8-8 8-8 8 8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+            Descontos
+          </h2>
+          <button type="button" class="btn-novo" id="btn-novo-desconto">
+            <span class="btn-plus">+</span> Novo desconto
+          </button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Valor</th>
+                <th>Motivo</th>
+                <th>Autorização</th>
+                <th>Status</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-descontos">
+              <tr>
+                <td colspan="7" class="table-empty">Carregando descontos...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="descontos-empty" hidden>Nenhum desconto cadastrado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CORTESIAS ==================== -->
+    <section class="view" id="view-cortesias">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Cortesias
+          </h2>
+          <button type="button" class="btn-novo" id="btn-novo-cortesia">
+            <span class="btn-plus">+</span> Nova cortesia
+          </button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Motivo</th>
+                <th>Usuário</th>
+                <th>Autorizador</th>
+                <th>Ticket</th>
+                <th>Status</th>
+                <th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-cortesias">
+              <tr>
+                <td colspan="7" class="table-empty">Carregando cortesias...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="cortesias-empty" hidden>Nenhuma cortesia registrada.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== DASHBOARD FINANCEIRO ==================== -->
+    <section class="view" id="view-dashboard-financeiro">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Dashboard Financeiro
+          </h2>
+        </div>
+
+        <div class="summary-grid fin-summary">
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Receita do dia</span>
+              <span class="summary-value" id="dash-receita-dia">R$ 0,00</span>
+            </div>
+            <div class="summary-icon icon-green"></div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Receita do mês</span>
+              <span class="summary-value" id="dash-receita-mes">R$ 0,00</span>
+            </div>
+            <div class="summary-icon icon-blue"></div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Receita do ano</span>
+              <span class="summary-value" id="dash-receita-ano">R$ 0,00</span>
+            </div>
+            <div class="summary-icon icon-yellow"></div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Tickets (mês)</span>
+              <span class="summary-value" id="dash-tickets">0</span>
+            </div>
+            <div class="summary-icon icon-purple"></div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Ticket médio</span>
+              <span class="summary-value" id="dash-ticket-medio">R$ 0,00</span>
+            </div>
+            <div class="summary-icon icon-teal"></div>
+          </div>
+        </div>
+
+        <div class="dash-charts">
+          <div class="chart-box">
+            <h3 class="config-section-title">Receita diária (últimos 30 dias)</h3>
+            <canvas id="grafico-dash-diario" height="120"></canvas>
+          </div>
+          <div class="chart-box">
+            <h3 class="config-section-title">Receita mensal (últimos 12 meses)</h3>
+            <canvas id="grafico-dash-mensal" height="120"></canvas>
+          </div>
+          <div class="chart-box">
+            <h3 class="config-section-title">Receita por forma de pagamento</h3>
+            <canvas id="grafico-dash-forma" height="120"></canvas>
+          </div>
+          <div class="chart-box">
+            <h3 class="config-section-title">Receita por horário (hoje)</h3>
+            <canvas id="grafico-dash-horario" height="120"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== AUDITORIA ==================== -->
+    <section class="view" id="view-auditoria">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Auditoria
+          </h2>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Tabela</th>
+                <th>Registro</th>
+                <th>Campo</th>
+                <th>Valor antigo</th>
+                <th>Valor novo</th>
+                <th>Usuário</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-auditoria">
+              <tr>
+                <td colspan="7" class="table-empty">Carregando auditoria...</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="auditoria-empty" hidden>Nenhum registro de auditoria.</p>
+        </div>
+      </div>
+    </section>
+
   </main>
+</div>
+
+<!-- ==================== MODAL FORMA DE PAGAMENTO (SAIDA) ==================== -->
+<div class="modal-overlay" id="modal-forma-pagamento" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Forma de pagamento</h3>
+      <button type="button" class="modal-close" id="modal-forma-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <p class="forma-info" id="forma-saida-info">Selecione a forma de pagamento para registrar a saída.</p>
+      <div class="forma-opcoes" id="forma-opcoes">
+        <button type="button" class="forma-opcao" data-forma="dinheiro">
+          <span class="forma-icone">💵</span>
+          <span class="forma-nome">Dinheiro</span>
+        </button>
+        <button type="button" class="forma-opcao" data-forma="pix">
+          <span class="forma-icone">📱</span>
+          <span class="forma-nome">Pix</span>
+        </button>
+        <button type="button" class="forma-opcao" data-forma="cartao_credito">
+          <span class="forma-icone">💳</span>
+          <span class="forma-nome">Cartão de crédito</span>
+        </button>
+        <button type="button" class="forma-opcao" data-forma="cartao_debito">
+          <span class="forma-icone">🏦</span>
+          <span class="forma-nome">Cartão de débito</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-cancelar" id="btn-forma-cancelar">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL ABRIR CAIXA ==================== -->
+<div class="modal-overlay" id="modal-abrir-caixa" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Abrir caixa</h3>
+      <button type="button" class="modal-close" id="modal-abrir-caixa-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-abrir-caixa" class="modal-form" autocomplete="off">
+      <label for="input-caixa-operador">Operador</label>
+      <input type="text" id="input-caixa-operador" placeholder="Nome do operador" required>
+      <label for="input-caixa-valor-inicial">Valor inicial (R$)</label>
+      <input type="number" id="input-caixa-valor-inicial" min="0" step="0.01" placeholder="0,00">
+      <label for="input-caixa-observacoes">Observações</label>
+      <input type="text" id="input-caixa-observacoes" placeholder="Observações (opcional)">
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-abrir-caixa-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Abrir</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL FECHAR CAIXA ==================== -->
+<div class="modal-overlay" id="modal-fechar-caixa" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Fechar caixa</h3>
+      <button type="button" class="modal-close" id="modal-fechar-caixa-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-fechar-caixa" class="modal-form" autocomplete="off">
+      <div class="fechamento-resumo" id="fechamento-resumo"></div>
+      <label for="input-caixa-valor-contado">Valor contado (R$)</label>
+      <input type="number" id="input-caixa-valor-contado" min="0" step="0.01" placeholder="0,00" required>
+      <label for="input-caixa-fechar-observacoes">Observações</label>
+      <input type="text" id="input-caixa-fechar-observacoes" placeholder="Observações (opcional)">
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-fechar-caixa-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Fechar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL SANGRIA / SUPRIMENTO ==================== -->
+<div class="modal-overlay" id="modal-movimento-caixa" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-movimento-titulo">Sangria</h3>
+      <button type="button" class="modal-close" id="modal-movimento-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-movimento-caixa" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-movimento-tipo">
+      <label for="input-movimento-valor">Valor (R$)</label>
+      <input type="number" id="input-movimento-valor" min="0.01" step="0.01" placeholder="0,00" required>
+      <label for="input-movimento-motivo">Motivo</label>
+      <input type="text" id="input-movimento-motivo" placeholder="Motivo" required>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-movimento-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Confirmar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL MENSALISTA ==================== -->
+<div class="modal-overlay" id="modal-mensalista" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-mensalista-titulo">Novo mensalista</h3>
+      <button type="button" class="modal-close" id="modal-mensalista-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-mensalista" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-mensalista-id">
+      <label for="input-mensalista-nome">Nome</label>
+      <input type="text" id="input-mensalista-nome" placeholder="Nome completo" required>
+      <label for="input-mensalista-cpf">CPF/CNPJ</label>
+      <input type="text" id="input-mensalista-cpf" placeholder="CPF ou CNPJ">
+      <label for="input-mensalista-telefone">Telefone</label>
+      <input type="text" id="input-mensalista-telefone" placeholder="(11) 99999-9999">
+      <label for="input-mensalista-email">Email</label>
+      <input type="email" id="input-mensalista-email" placeholder="email@exemplo.com">
+      <label for="input-mensalista-valor">Valor mensal (R$)</label>
+      <input type="number" id="input-mensalista-valor" min="0" step="0.01" placeholder="0,00" required>
+      <label for="input-mensalista-vencimento">Dia de vencimento</label>
+      <input type="number" id="input-mensalista-vencimento" min="1" max="31" value="5" required>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-mensalista-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL CONVENIO ==================== -->
+<div class="modal-overlay" id="modal-convenio" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-convenio-titulo">Novo convênio</h3>
+      <button type="button" class="modal-close" id="modal-convenio-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-convenio" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-convenio-id">
+      <label for="input-convenio-nome">Nome</label>
+      <input type="text" id="input-convenio-nome" placeholder="Nome da empresa" required>
+      <label for="input-convenio-cnpj">CNPJ</label>
+      <input type="text" id="input-convenio-cnpj" placeholder="CNPJ">
+      <label for="input-convenio-contato">Contato</label>
+      <input type="text" id="input-convenio-contato" placeholder="Contato">
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-convenio-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL CONTA A RECEBER ==================== -->
+<div class="modal-overlay" id="modal-conta" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Nova conta a receber</h3>
+      <button type="button" class="modal-close" id="modal-conta-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-conta" class="modal-form" autocomplete="off">
+      <label for="input-conta-convenio">Convênio</label>
+      <select id="input-conta-convenio"></select>
+      <label for="input-conta-descricao">Descrição</label>
+      <input type="text" id="input-conta-descricao" placeholder="Descrição">
+      <label for="input-conta-valor">Valor (R$)</label>
+      <input type="number" id="input-conta-valor" min="0.01" step="0.01" placeholder="0,00" required>
+      <label for="input-conta-vencimento">Vencimento</label>
+      <input type="text" id="input-conta-vencimento" placeholder="dd/mm/aaaa">
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-conta-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL DESCONTO ==================== -->
+<div class="modal-overlay" id="modal-desconto" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-desconto-titulo">Novo desconto</h3>
+      <button type="button" class="modal-close" id="modal-desconto-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-desconto" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-desconto-id">
+      <label for="input-desconto-nome">Nome</label>
+      <input type="text" id="input-desconto-nome" placeholder="Nome do desconto" required>
+      <label for="input-desconto-tipo">Tipo</label>
+      <select id="input-desconto-tipo">
+        <option value="percentual">Percentual (%)</option>
+        <option value="fixo">Valor fixo (R$)</option>
+      </select>
+      <label for="input-desconto-valor">Valor</label>
+      <input type="number" id="input-desconto-valor" min="0" step="0.01" placeholder="0,00" required>
+      <label for="input-desconto-motivo">Motivo</label>
+      <input type="text" id="input-desconto-motivo" placeholder="Motivo">
+      <label class="checkbox-label">
+        <input type="checkbox" id="input-desconto-autorizacao"> Necessita autorização
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-desconto-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL FORMA DE PAGAMENTO ==================== -->
+<div class="modal-overlay" id="modal-forma-pagamento" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-forma-pagamento-titulo">Nova forma de pagamento</h3>
+      <button type="button" class="modal-close" id="modal-forma-pagamento-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-forma-pagamento" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-forma-pagamento-id">
+      <label for="input-forma-pagamento-nome">Nome</label>
+      <input type="text" id="input-forma-pagamento-nome" placeholder="Ex.: Dinheiro, PIX, Cartão..." required>
+      <label for="input-forma-pagamento-codigo">Código</label>
+      <input type="text" id="input-forma-pagamento-codigo" placeholder="Ex.: dinheiro, pix, cartao_credito" required>
+      <label class="checkbox-label">
+        <input type="checkbox" id="input-forma-pagamento-ativo" checked>
+        <span>Forma de pagamento ativa</span>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-forma-pagamento-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL CORTESIA ==================== -->
+<div class="modal-overlay" id="modal-cortesia" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Nova cortesia</h3>
+      <button type="button" class="modal-close" id="modal-cortesia-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-cortesia" class="modal-form" autocomplete="off">
+      <label for="input-cortesia-motivo">Motivo</label>
+      <input type="text" id="input-cortesia-motivo" placeholder="Motivo da cortesia" required>
+      <label for="input-cortesia-ticket">Ticket (opcional)</label>
+      <input type="number" id="input-cortesia-ticket" placeholder="Número do ticket">
+      <label for="input-cortesia-autorizador">Autorizador</label>
+      <input type="text" id="input-cortesia-autorizador" placeholder="Quem autorizou">
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-cortesia-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL CANCELAR/ESTORNAR PAGAMENTO ==================== -->
+<div class="modal-overlay" id="modal-pagamento-acao" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-pagamento-acao-titulo">Cancelar pagamento</h3>
+      <button type="button" class="modal-close" id="modal-pagamento-acao-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-pagamento-acao" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-pagamento-acao-id">
+      <input type="hidden" id="input-pagamento-acao-tipo">
+      <label for="input-pagamento-acao-motivo">Motivo</label>
+      <input type="text" id="input-pagamento-acao-motivo" placeholder="Motivo" required>
+      <label for="input-pagamento-acao-autorizador">Autorizador</label>
+      <input type="text" id="input-pagamento-acao-autorizador" placeholder="Quem autorizou">
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-pagamento-acao-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Confirmar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL TICKET (IMPRESSAO) ==================== -->
+<div class="ticket-modal-overlay" id="ticket-modal" hidden>
+  <div class="ticket-modal-box">
+    <div class="ticket-print-area" id="ticket-print-area">
+      <div class="ticket">
+        <div class="ticket-header">
+          <strong id="ticket-nome-estacionamento">Estaciona Parking</strong>
+          <span id="ticket-cnpj"></span>
+          <span id="ticket-endereco"></span>
+          <span id="ticket-cidade-uf"></span>
+          <span id="ticket-telefone"></span>
+          <div class="ticket-cabecalho-custom" id="ticket-cabecalho-custom"></div>
+        </div>
+
+        <div class="ticket-divider"></div>
+
+        <div class="ticket-section-title">COMPROVANTE DE ESTACIONAMENTO</div>
+
+        <div class="ticket-row ticket-row-destaque">
+          <span class="ticket-label">Ticket Nº</span>
+          <span class="ticket-value ticket-numero" id="ticket-numero">—</span>
+        </div>
+
+        <div class="ticket-divider"></div>
+
+        <div class="ticket-row">
+          <span class="ticket-label">Placa</span>
+          <span class="ticket-value ticket-placa" id="ticket-placa">—</span>
+        </div>
+        <div class="ticket-row">
+          <span class="ticket-label">Veículo</span>
+          <span class="ticket-value" id="ticket-tipo">—</span>
+        </div>
+        <div class="ticket-row">
+          <span class="ticket-label">Vaga</span>
+          <span class="ticket-value" id="ticket-vaga">—</span>
+        </div>
+
+        <div class="ticket-divider"></div>
+
+        <div class="ticket-row">
+          <span class="ticket-label">Entrada</span>
+          <span class="ticket-value" id="ticket-entrada">—</span>
+        </div>
+        <div class="ticket-row" id="ticket-saida-row" hidden>
+          <span class="ticket-label">Saída</span>
+          <span class="ticket-value" id="ticket-saida">—</span>
+        </div>
+        <div class="ticket-row" id="ticket-tempo-row">
+          <span class="ticket-label">Permanência</span>
+          <span class="ticket-value" id="ticket-tempo">—</span>
+        </div>
+
+        <div class="ticket-row" id="ticket-obs-row" hidden>
+          <span class="ticket-label">Observações</span>
+          <span class="ticket-value ticket-obs" id="ticket-obs">—</span>
+        </div>
+
+        <div class="ticket-divider" id="ticket-valor-divider" hidden></div>
+
+        <div class="ticket-row ticket-row-valor" id="ticket-valor-row" hidden>
+          <span class="ticket-label">Valor total</span>
+          <span class="ticket-value ticket-valor" id="ticket-valor">R$ 0,00</span>
+        </div>
+        <div class="ticket-row" id="ticket-forma-pagamento-row" hidden>
+          <span class="ticket-label">Pagamento</span>
+          <span class="ticket-value" id="ticket-forma-pagamento">—</span>
+        </div>
+
+        <div class="ticket-divider"></div>
+
+        <div class="ticket-codigo">
+          <svg id="ticket-barcode"></svg>
+          <span id="ticket-codigo-numero">—</span>
+        </div>
+
+        <div class="ticket-divider"></div>
+
+        <div class="ticket-footer">
+          <span id="ticket-rodape-custom"></span>
+          <span class="ticket-rodape-padrao">Guarde este ticket para retirada do veículo</span>
+          <span class="ticket-data-emissao" id="ticket-data-emissao"></span>
+        </div>
+      </div>
+    </div>
+    <div class="ticket-modal-actions">
+      <button type="button" class="btn-cancelar" id="ticket-modal-fechar">Fechar</button>
+      <button type="button" class="btn-emitir" id="ticket-modal-imprimir">Imprimir</button>
+    </div>
+  </div>
 </div>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>

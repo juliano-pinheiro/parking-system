@@ -22,6 +22,8 @@ class Ticket:
     status: str = "ABERTO"          # ABERTO -> veiculo ainda esta no estacionamento | FECHADO -> ja saiu
     tipo_veiculo: str = "Carro"     # Tipo do veiculo: Carro, Moto ou Caminhonete
     observacoes: str = ""           # Observacoes opcionais (cor, modelo, etc.)
+    forma_pagamento: Optional[str] = None  # Forma de pagamento registrada na saida
+    empresa_id: Optional[int] = None       # Empresa/CNPJ dono do ticket
 
     def to_dict(self) -> dict:
         """Converte o ticket em um dicionario (para salvar em JSON)."""
@@ -40,4 +42,6 @@ class Ticket:
             status=dados.get("status", "ABERTO"),
             tipo_veiculo=dados.get("tipo_veiculo", "Carro"),
             observacoes=dados.get("observacoes", ""),
+            forma_pagamento=dados.get("forma_pagamento"),
+            empresa_id=dados.get("empresa_id"),
         )
