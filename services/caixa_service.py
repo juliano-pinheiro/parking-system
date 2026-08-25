@@ -25,12 +25,20 @@ class CaixaService(BaseSupabaseService):
     """Regras de negocio e persistencia dos caixas."""
 
     TABELA = "caixas"
+    SCOPED_EMPRESA = True
     MODELO = Caixa
     CAMPOS_DATA = ("data_abertura", "data_fechamento", "criado_em", "alterado_em")
 
-    def __init__(self):
+    def __init__(self, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
         self._registros: List[Caixa] = self._carregar()
         self._movimentacoes: List[MovimentacaoCaixa] = self._carregar_movimentacoes()
+
+    def recarregar(self, empresa_id: Optional[int] = None) -> None:
+        """Recarrega caixas e movimentacoes, filtrando pela empresa."""
+        self._empresa_id = empresa_id
+        self._registros = self._carregar()
+        self._movimentacoes = self._carregar_movimentacoes()
 
     # =====================================================
     # MOVIMENTACOES
@@ -38,7 +46,11 @@ class CaixaService(BaseSupabaseService):
 
     def _carregar_movimentacoes(self) -> List[MovimentacaoCaixa]:
         try:
-            resposta = supabase.table("movimentacoes_caixa").select("*").order("id").execute()
+            query = supabase.table("movimentacoes_caixa").select("*").order("id")
+            eid = getattr(self, "_empresa_id", None)
+            if eid is not None:
+                query = query.eq("empresa_id", eid)
+            resposta = query.execute()
         except Exception:
             return []
         movs = []
@@ -61,6 +73,9 @@ class CaixaService(BaseSupabaseService):
             item = mov.to_dict()
             item["data"] = self._converter_interna_para_iso(item.get("data"))
             item["criado_em"] = self._converter_interna_para_iso(item.get("criado_em"))
+            eid = getattr(self, "_empresa_id", None)
+            if eid is not None:
+                item["empresa_id"] = eid
             dados.append(item)
         try:
             supabase.table("movimentacoes_caixa").insert(dados).execute()
@@ -85,6 +100,7 @@ class CaixaService(BaseSupabaseService):
             forma_pagamento=forma_pagamento,
             data=datetime.now().strftime(FORMATO_DATA),
             usuario=usuario,
+            empresa_id=getattr(self, "_empresa_id", None),
         )
         self._movimentacoes.append(mov)
         self._salvar_movimentacoes()
@@ -124,6 +140,7 @@ class CaixaService(BaseSupabaseService):
             valor_inicial=round(float(valor_inicial or 0), 2),
             status=STATUS_ABERTO,
             observacoes=observacoes,
+            empresa_id=getattr(self, "_empresa_id", None),
             usuario=usuario,
             ip=ip,
         )

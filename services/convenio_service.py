@@ -15,10 +15,12 @@ class ConvenioService(BaseSupabaseService):
     """Regras de negocio e persistencia dos convenios."""
 
     TABELA = "convenios"
+    SCOPED_EMPRESA = True
     MODELO = Convenio
     CAMPOS_DATA = ("criado_em",)
 
-    def __init__(self):
+    def __init__(self, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
         self._registros: List[Convenio] = self._carregar()
 
     def criar(self, nome: str, cnpj: str = "", contato: str = "", ativo: bool = True) -> Convenio:
@@ -32,6 +34,7 @@ class ConvenioService(BaseSupabaseService):
             cnpj=cnpj,
             contato=contato,
             ativo=bool(ativo),
+            empresa_id=getattr(self, "_empresa_id", None),
         )
         self._registros.append(convenio)
         self._persistir()

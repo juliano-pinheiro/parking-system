@@ -16,10 +16,12 @@ class CortesiaService(BaseSupabaseService):
     """Regras de negocio e persistencia das cortesias."""
 
     TABELA = "cortesias"
+    SCOPED_EMPRESA = True
     MODELO = Cortesia
     CAMPOS_DATA = ("data", "criado_em")
 
-    def __init__(self):
+    def __init__(self, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
         self._registros: List[Cortesia] = self._carregar()
 
     def criar(
@@ -41,6 +43,7 @@ class CortesiaService(BaseSupabaseService):
             data=datetime.now().strftime(FORMATO_DATA),
             ticket_numero=ticket_numero,
             status=STATUS_ATIVO,
+            empresa_id=getattr(self, "_empresa_id", None),
         )
         self._registros.append(cortesia)
         self._persistir()

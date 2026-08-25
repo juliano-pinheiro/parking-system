@@ -16,10 +16,12 @@ class ContasReceberService(BaseSupabaseService):
     """Regras de negocio e persistencia das contas a receber."""
 
     TABELA = "contas_receber"
+    SCOPED_EMPRESA = True
     MODELO = ContaReceber
     CAMPOS_DATA = ("vencimento", "data_pagamento", "criado_em")
 
-    def __init__(self):
+    def __init__(self, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
         self._registros: List[ContaReceber] = self._carregar()
 
     def criar(
@@ -39,6 +41,7 @@ class ContasReceberService(BaseSupabaseService):
             valor=round(float(valor), 2),
             vencimento=vencimento,
             status=CONTA_ABERTA,
+            empresa_id=getattr(self, "_empresa_id", None),
         )
         self._registros.append(conta)
         self._persistir()

@@ -23,10 +23,12 @@ class PagamentoService(BaseSupabaseService):
     """Regras de negocio e persistencia dos pagamentos."""
 
     TABELA = "pagamentos"
+    SCOPED_EMPRESA = True
     MODELO = Pagamento
     CAMPOS_DATA = ("data", "criado_em", "alterado_em")
 
-    def __init__(self, caixa_service=None, financeiro_service=None):
+    def __init__(self, caixa_service=None, financeiro_service=None, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
         self._registros: List[Pagamento] = self._carregar()
         self._caixa_service = caixa_service
         self._financeiro_service = financeiro_service

@@ -15,10 +15,12 @@ class DescontoService(BaseSupabaseService):
     """Regras de negocio e persistencia dos descontos."""
 
     TABELA = "descontos"
+    SCOPED_EMPRESA = True
     MODELO = Desconto
     CAMPOS_DATA = ("criado_em",)
 
-    def __init__(self):
+    def __init__(self, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
         self._registros: List[Desconto] = self._carregar()
 
     def criar(
@@ -48,6 +50,7 @@ class DescontoService(BaseSupabaseService):
             motivo=motivo,
             necessita_autorizacao=bool(necessita_autorizacao),
             ativo=bool(ativo),
+            empresa_id=getattr(self, "_empresa_id", None),
         )
         self._registros.append(desconto)
         self._persistir()

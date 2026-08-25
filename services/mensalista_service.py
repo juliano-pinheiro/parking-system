@@ -28,16 +28,28 @@ class MensalistaService(BaseSupabaseService):
     """Regras de negocio e persistencia dos mensalistas."""
 
     TABELA = "mensalistas"
+    SCOPED_EMPRESA = True
     MODELO = Mensalista
     CAMPOS_DATA = ("criado_em", "alterado_em")
 
-    def __init__(self):
+    def __init__(self, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
         self._registros: List[Mensalista] = self._carregar()
         self._mensalidades: List[Mensalidade] = self._carregar_mensalidades()
 
+    def recarregar(self, empresa_id: Optional[int] = None) -> None:
+        """Recarrega mensalistas e mensalidades, filtrando pela empresa."""
+        self._empresa_id = empresa_id
+        self._registros = self._carregar()
+        self._mensalidades = self._carregar_mensalidades()
+
     def _carregar_mensalidades(self) -> List[Mensalidade]:
         try:
-            resposta = supabase.table("mensalidades").select("*").order("id").execute()
+            query = supabase.table("mensalidades").select("*").order("id")
+            eid = getattr(self, "_empresa_id", None)
+            if eid is not None:
+                query = query.eq("empresa_id", eid)
+            resposta = query.execute()
         except Exception:
             return []
         mensalidades = []
@@ -49,10 +61,6 @@ class MensalistaService(BaseSupabaseService):
         return mensalidades
 
     def _salvar_mensalidades(self) -> None:
-        try:
-            supabase.table("mensalidades").delete().neq("id", -1).execute()
-        except Exception:
-            return
         if not self._mensalidades:
             return
         dados = []
@@ -60,9 +68,12 @@ class MensalistaService(BaseSupabaseService):
             item = m.to_dict()
             item["data_pagamento"] = self._converter_interna_para_iso(item.get("data_pagamento"))
             item["criado_em"] = self._converter_interna_para_iso(item.get("criado_em"))
+            eid = getattr(self, "_empresa_id", None)
+            if eid is not None:
+                item["empresa_id"] = eid
             dados.append(item)
         try:
-            supabase.table("mensalidades").insert(dados).execute()
+            supabase.table("mensalidades").upsert(dados, on_conflict="id").execute()
         except Exception:
             pass
 
@@ -98,6 +109,7 @@ class MensalistaService(BaseSupabaseService):
             valor_mensal=round(float(valor_mensal), 2),
             dia_vencimento=int(dia_vencimento),
             status=STATUS_ATIVO,
+            empresa_id=getattr(self, "_empresa_id", None),
         )
         self._registros.append(mensalista)
         self._persistir()
