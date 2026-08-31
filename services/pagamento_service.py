@@ -58,6 +58,7 @@ class PagamentoService(BaseSupabaseService):
             operador=operador,
             caixa_id=caixa_id,
             status=STATUS_ATIVO,
+            empresa_id=getattr(self, "_empresa_id", None),
         )
         self._registros.append(pagamento)
         self._persistir()
@@ -72,12 +73,14 @@ class PagamentoService(BaseSupabaseService):
                 operador,
             )
 
-        # Lancamento financeiro (receita)
+        # Lancamento financeiro (receita) - erro nao e ignorado silenciosamente
         if self._financeiro_service:
             try:
                 self._financeiro_service.registrar_receita_ticket(ticket)
-            except Exception:
-                pass
+            except Exception as erro:
+                # Registra o erro mas nao impede o pagamento (o ticket ja saiu).
+                # O lancamento pode ser refeito manualmente se necessario.
+                print(f"[ERRO] Falha ao registrar receita do ticket {ticket.numero}: {erro}")
 
         return pagamento
 

@@ -1,155 +1,154 @@
 # Sistema de Estacionamento com Controle por Ticket
 
-Sistema completo de gerenciamento de estacionamento desenvolvido em **Python**, com
-persistencia de dados em arquivos **JSON**. Disponivel em duas interfaces que compartilham
-as mesmas regras de negocio:
+Sistema completo de gerenciamento de estacionamento, com **interface web (Flask)** e
+**interface de terminal**, compartilhando as mesmas regras de negocio. Os dados sao
+persistidos no **Supabase (PostgreSQL)**.
 
+- **Web** (`app.py`): painel completo no navegador com login, multi-empresa, financeiro,
+  caixa, relatorios e controle de acesso por perfil.
 - **Terminal** (`main.py`): menu interativo via linha de comando, sem dependencias externas.
-- **Web** (`app.py`): interface grafica no navegador, usando **Flask** como backend.
 
 ## Funcionalidades
 
-- **Emissao de ticket na entrada**: gera um ticket com numero sequencial, placa do veiculo,
-  vaga atribuida e data/hora de entrada.
-- **Registro de saida**: calcula automaticamente o valor a pagar com base no tempo de
-  permanencia do veiculo.
-- **Tabela de precos configuravel**: valor da primeira hora e valor de cada hora adicional
-  podem ser ajustados pelo menu de configuracoes.
-- **Controle de vagas**: acompanha o total de vagas, vagas ocupadas e vagas livres em tempo
-  real.
-- **Relatorio de movimentacao**: lista veiculos que entraram/sairam e o faturamento total,
-  com opcao de filtrar por data.
-- **Interface via terminal**: menu interativo simples e direto.
-- **Interface web**: mesmas funcionalidades acima em um painel visual no navegador,
-  com design moderno e responsivo (funciona em desktop e mobile).
-- **Persistencia em JSON**: todos os dados (tickets e configuracoes) sao salvos em
-  `data/tickets.json` e `data/configuracao.json`, preservando as informacoes entre execucoes
-  e compartilhados entre as duas interfaces (terminal e web).
+### Operacao
+- Emissao de ticket na entrada: numero sequencial, placa, vaga, tipo de veiculo, data/hora.
+- Registro de saida com calculo automatico do valor (primeira hora + adicionais, fracionamento,
+  diaria, meia estadia, tabela noturna/fim de semana/feriado, pernoite).
+- Controle de vagas em tempo real, com vagas separadas por tipo de veiculo (carro, moto,
+  carro grande, caminhonete) e mapa de vagas visual.
+- Ticket perdido (com tarifa configurável e exigencia de autorizacao).
+- Lista negra de placas, reservas de vaga e registro de ocorrencias.
+- Impressao de ticket com codigo de barras (barcode SVG).
 
-## Estrutura do projeto
+### Financeiro
+- Caixa: abertura/fechamento, sangria, suprimento, totais por forma de pagamento.
+- Pagamentos (dinheiro, PIX, cartao etc.) com formas de pagamento configuraveis.
+- Cancelamento e estorno de pagamentos com autorizacao.
+- Financeiro: lancamentos manuais, contas a receber, convenios, mensalistas com mensalidades
+  e controle de inadimplencia, descontos e cortesias.
+- Emissao de NFSe simplificada (com cancelamento).
+- Dashboard financeiro (receita do dia/mes/ano, ticket medio) e relatorio financeiro com
+  agrupamento por dia/semana/mes, exportavel em **CSV e PDF**.
+- Relatorio de ocupacao e DRE (receita bruta, descontos, cortesias, estornos).
+
+### Administracao
+- **Multi-empresa (multi-CNPJ)**: cadastro de empresas e isolamento dos dados por CNPJ.
+- **Autenticacao**: login com email/senha, troca de senha, usuarios por empresa.
+- **Perfis e permissoes**: perfis (admin, supervisor, operador, etc.), matriz de permissoes
+  por modulo e acao, clonagem de perfil, aplicacao no menu e nas APIs.
+- **Auditoria**: registro de alteracoes e logs de acesso (com filtros e exportacao CSV).
+- **Notificacoes**: central de avisos de vencimento/inadimplencia de mensalistas.
+- **Backup**: exportacao completa do backup da empresa ativa em JSON.
+
+## Arquitetura
 
 ```
 parking-system/
-├── main.py                          # Ponto de entrada: menu interativo do terminal
-├── app.py                           # Ponto de entrada: servidor web (Flask)
-├── models/
-│   ├── __init__.py
-│   ├── ticket.py                    # Modelo de dados do Ticket
-│   └── configuracao.py              # Modelo de dados da Configuracao (precos e vagas)
-├── services/
-│   ├── __init__.py
-│   ├── estacionamento_service.py    # Regras de negocio (entrada, saida, calculo, relatorios)
-│   └── persistencia_service.py      # Leitura/escrita dos arquivos JSON
+├── app.py                          # Interface web (Flask + API REST + SPA)
+├── main.py                         # Interface terminal (menu interativo)
+├── supabase_client.py              # Cliente do Supabase (carregado do .env)
+├── requirements.txt                # Dependencias do projeto (pip install -r)
+├── models/                         # Modelos de dados (dataclasses)
+│   ├── ticket.py, configuracao.py, cliente.py, usuario.py, empresa.py ...
+│   └── (financeiro, caixa, pagamento, mensalista, convenio, nfse, etc.)
+├── services/                       # Regras de negocio e persistencia
+│   ├── estacionamento_service.py   # Regras principais (entrada, saida, calculo)
+│   ├── persistencia_service.py     # Acesso ao Supabase (tickets, configuracao)
+│   ├── base_supabase_service.py    # Base CRUD para os demais modulos
+│   └── ... (um servico por modulo)
+├── sql/                            # Scripts SQL para o Supabase (criacao/evolucao)
 ├── templates/
-│   └── index.html                   # Pagina unica (SPA) da interface web
+│   ├── index.html                  # SPA principal (painel)
+│   └── login.html                  # Pagina de login
 ├── static/
-│   ├── css/
-│   │   └── style.css                # Estilos da interface web
-│   └── js/
-│       └── app.js                   # Logica do frontend (consome a API Flask)
-├── data/
-│   ├── tickets.json                 # Gerado automaticamente na primeira execucao
-│   └── configuracao.json            # Gerado automaticamente na primeira execucao
-└── README.md
+│   ├── css/style.css
+│   └── js/app.js                   # Logica do frontend (consumo da API)
+├── data/                           # Dados locais (JSON legado e backups)
+└── migrar_supabase.py              # Script de migracao JSON -> Supabase
 ```
 
 ## Requisitos
 
-- **Versao terminal** (`main.py`): Python 3.8 ou superior, nenhuma biblioteca externa.
-- **Versao web** (`app.py`): Python 3.8 ou superior + **Flask**.
+- Python 3.10 ou superior.
+- Um projeto [Supabase](https://supabase.com) com as tabelas criadas (ver abaixo).
+- Dependencias: `Flask`, `supabase`, `python-dotenv` e `reportlab` (apenas para a interface
+  web; a versao terminal nao exige bibliotecas externas).
 
-## Como executar (terminal)
+## Configuracao inicial
 
-1. Abra a pasta `parking-system` no VS Code.
-2. Abra um terminal integrado (``Terminal > New Terminal``).
-3. Execute o comando:
+1. **Instale as dependencias** (interface web):
 
-```bash
-python main.py
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-4. Utilize o menu numerico exibido no terminal para navegar entre as opcoes.
+2. **Configure o `.env`** na raiz do projeto, apontando para o seu projeto Supabase:
 
-## Como executar (web)
+   ```
+   SUPABASE_URL=https://SEU-PROJETO.supabase.co
+   SUPABASE_KEY=sua-service-role-key-ou-anon-key
+   ```
 
-1. Instale o Flask (uma unica vez):
+3. **Crie as tabelas no Supabase**: execute os scripts da pasta `sql/` no SQL Editor do
+   Supabase, na ordem adequada:
+   - `sql/criar_tabela_financeiro.sql` e `sql/criar_tabelas_financeiro.sql` (tabelas base)
+   - `sql/criar_tabela_perfis.sql`, `sql/criar_tabela_permissoes.sql`
+   - `sql/criar_multi_empresa.sql` (empresas e coluna empresa_id)
+   - `sql/modulos_avancados.sql` (nfse, lista negra, reservas, ocorrencias)
+   - `sql/tipos_veiculo.sql`
+   - `sql/adicionar_colunas_*.sql` e `sql/correcao_colunas_pendentes.sql` (evolucao)
+   - `sql/corrigir_rls_empresas.sql` (ajusta Row Level Security para acesso via chave do app)
 
-```bash
-pip install flask
-```
+   > Os scripts usam `IF NOT EXISTS` / `IF EXISTS` e podem ser executados mais de uma vez.
 
-2. Execute o servidor:
+4. **(Opcional) Migrar dados do JSON local para o Supabase**:
+
+   ```bash
+   python migrar_supabase.py
+   ```
+
+## Como executar
+
+### Interface web
 
 ```bash
 python app.py
 ```
 
-3. Abra o navegador em [http://127.0.0.1:5000](http://127.0.0.1:5000).
+Acesse [http://127.0.0.1:5000](http://127.0.0.1:5000). Faca login com um usuario
+cadastrado (perfis: `admin`, `supervisor`, `operador`, etc.). A tela inicial e o
+**Dashboard**, com o menu lateral para: Registrar Entrada/Saida, Pátio/Vagas, Financeiro,
+Caixa, Mensalistas, Clientes, Relatorios, Configuracoes, Usuarios, Empresas, Permissoes,
+Auditoria, NFSe, Lista Negra, Reservas, Ocorrencias e Avisos.
 
-4. Use o menu lateral para navegar entre as telas: Registrar Entrada, Registrar Saida,
-   Controle de Vagas, Relatorio e Configuracoes.
+### Interface terminal
 
-> A versao web usa exatamente as mesmas regras de negocio e os mesmos arquivos de dados
-> (`data/tickets.json` e `data/configuracao.json`) da versao terminal — nao ha duplicacao de
-> logica, apenas uma nova camada de API (Flask) e interface (HTML/CSS/JS) sobre o servico
-> existente (`EstacionamentoService`).
+```bash
+python main.py
+```
 
-## Como usar o sistema
+Menu numerico com: Registrar Entrada, Registrar Saida, Controle de Vagas, Relatorio e
+Configuracoes. Usa as mesmas regras de negocio e o mesmo banco (Supabase) da versao web.
 
-Cada funcionalidade pode ser acessada tanto pelo menu do terminal quanto pela tela
-correspondente na interface web (menu lateral).
+## Primeiro acesso
 
-### 1. Registrar entrada de veiculo
-No terminal, escolha a opcao **1** no menu; na web, use a tela **Registrar Entrada**.
-Informe a placa do veiculo. O sistema atribui automaticamente uma vaga livre e emite um
-ticket com numero sequencial e horario de entrada.
+Para criar o primeiro usuario (admin), execute no SQL Editor do Supabase ou utilize um
+script de bootstrap:
 
-### 2. Registrar saida de veiculo
-No terminal, escolha a opcao **2**; na web, use a tela **Registrar Saida**. Informe o
-**numero do ticket** ou a **placa** do veiculo. O sistema calcula o valor a pagar com base no
-tempo de permanencia e libera a vaga.
+```sql
+-- Exemplo: criar um usuario admin (substitua os valores)
+INSERT INTO usuarios (nome, email, senha, perfil, master, ativo)
+VALUES ('Administrador', 'admin@exemplo.com', '<hash-da-senha>', 'admin', TRUE, TRUE);
+```
 
-### 3. Controle de vagas
-No terminal, escolha a opcao **3**; na web, use a tela **Controle de Vagas** para visualizar
-o total de vagas, quantas estao ocupadas, quantas estao livres e a lista de veiculos
-atualmente estacionados.
-
-### 4. Relatorio de movimentacao
-No terminal, escolha a opcao **4**; na web, use a tela **Relatorio** para ver quantos
-veiculos entraram, quantos sairam e o faturamento total. E possivel filtrar o relatorio por
-uma data especifica (formato `dd/mm/aaaa`).
-
-### 5. Configuracoes
-No terminal, escolha a opcao **5**; na web, use a tela **Configuracoes** para alterar o total
-de vagas do estacionamento, o valor da primeira hora e o valor de cada hora adicional. Deixe
-o campo em branco para manter o valor atual.
-
-## Regra de cobranca
-
-- **Primeira hora (ou fracao)**: valor fixo (padrao `R$ 5,00`).
-- **Cada hora adicional (ou fracao)**: valor fixo por hora (padrao `R$ 3,00`).
-
-Exemplo com os valores padrao:
-- Permanencia de 40 minutos → cobra apenas a primeira hora: `R$ 5,00`.
-- Permanencia de 1h30 → primeira hora + 1 hora adicional (fracao arredondada para cima):
-  `R$ 5,00 + R$ 3,00 = R$ 8,00`.
-- Permanencia de 3h10 → primeira hora + 3 horas adicionais (fracao arredondada para cima):
-  `R$ 5,00 + 3 × R$ 3,00 = R$ 14,00`.
-
-## Persistencia de dados
-
-Os dados sao armazenados automaticamente na pasta `data/`:
-
-- `tickets.json`: historico completo de todos os tickets (abertos e fechados).
-- `configuracao.json`: total de vagas, valores da tabela de precos e o proximo numero de
-  ticket a ser emitido.
-
-Nao e necessario nenhum banco de dados: os arquivos sao criados automaticamente na primeira
-execucao do programa.
+> A senha e armazenada como hash. O cadastro de usuarios tambem pode ser feito pela tela
+> **Usuarios** no painel web, desde que exista ao menos um usuario master/admin.
 
 ## Observacoes
 
-- As placas sao armazenadas em letras maiusculas, independentemente de como forem digitadas.
+- Placas sao armazenadas em letras maiusculas.
 - Nao e permitido registrar duas entradas abertas para a mesma placa.
-- Ao reduzir o total de vagas, o sistema impede valores menores que a quantidade de veiculos
-  ja estacionados.
+- Ao reduzir o total de vagas, o sistema impede valores menores que a quantidade de
+  veiculos ja estacionados.
+- `data/*.json` (tickets, configuracao) sao dados locais do estagio anterior de migracao
+  e ficam fora do controle de versao (`.gitignore`).

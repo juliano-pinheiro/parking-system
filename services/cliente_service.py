@@ -20,49 +20,94 @@ from supabase_client import supabase
 class ClienteService:
     """Regras de negocio dos clientes mensalistas."""
 
-    def __init__(self):
-        self.clientes: List[Cliente] = self._carregar()
+    def __init__(self, empresa_id: int | None = None):
+        self._empresa_id = empresa_id
+        # False quando a coluna empresa_id ainda nao existe no banco
+        # (executar sql/correcao_colunas_pendentes.sql no Supabase).
+        self._empresa_suportada = True
+        self.clientes: List[Cliente] = self._carregar(empresa_id)
+
+    def recarregar(self, empresa_id: int | None = None) -> None:
+        """Recarrega os clientes, filtrando pela empresa ativa."""
+        self._empresa_id = empresa_id
+        self.clientes = self._carregar(empresa_id)
 
     # =====================================================
     # PERSISTENCIA
     # =====================================================
 
-    def _carregar(self) -> List[Cliente]:
-        """Carrega todos os clientes do Supabase."""
-
-        resposta = (
-            supabase
-            .table("clientes")
-            .select("*")
-            .order("id")
-            .execute()
+    @staticmethod
+    def _coluna_ausente(erro: Exception) -> bool:
+        """True quando o erro indica coluna inexistente no banco."""
+        texto = str(erro)
+        return (
+            "PGRST204" in texto
+            or "42703" in texto
+            or "does not exist" in texto
         )
+
+    def _carregar(self, empresa_id: int | None = None) -> List[Cliente]:
+        """Carrega os clientes da empresa ativa (ou de todas se sem empresa)."""
+
+        query = supabase.table("clientes").select("*").order("id")
+
+        eid = empresa_id if empresa_id is not None else self._empresa_id
+        if eid is not None and self._empresa_suportada:
+            query = query.eq("empresa_id", eid)
+
+        try:
+            resposta = query.execute()
+        except Exception as erro:
+            if eid is not None and self._coluna_ausente(erro):
+                # Coluna empresa_id ainda nao existe: carrega sem filtro.
+                self._empresa_suportada = False
+                resposta = (
+                    supabase.table("clientes").select("*").order("id").execute()
+                )
+            else:
+                raise
 
         return [
             Cliente.from_dict(self._converter_para_modelo(item))
             for item in resposta.data
         ]
 
-    def _salvar(self) -> None:
-        """
-        Sincroniza os clientes em memoria com o Supabase.
+    def _inserir(self, cliente: Cliente) -> None:
+        """Insere um novo cliente no Supabase (id explicito: a coluna nao e identity)."""
 
-        Nesta primeira etapa, substitui os registros existentes
-        pela lista atual.
-        """
+        dados = self._converter_para_banco(cliente)
+        if self._empresa_id is not None and self._empresa_suportada:
+            dados["empresa_id"] = self._empresa_id
 
-        # Limpa os registros atuais
-        supabase.table("clientes").delete().neq("id", -1).execute()
+        try:
+            resposta = supabase.table("clientes").insert(dados).execute()
+        except Exception as erro:
+            if "empresa_id" in dados and self._coluna_ausente(erro):
+                self._empresa_suportada = False
+                dados.pop("empresa_id", None)
+                resposta = supabase.table("clientes").insert(dados).execute()
+            else:
+                raise
 
-        if not self.clientes:
-            return
+        if resposta.data:
+            cliente.id = resposta.data[0].get("id", cliente.id)
 
-        dados = [
-            self._converter_para_banco(cliente)
-            for cliente in self.clientes
-        ]
+    def _persistir(self, cliente: Cliente) -> None:
+        """Atualiza um cliente existente no Supabase (upsert por id)."""
 
-        supabase.table("clientes").insert(dados).execute()
+        dados = self._converter_para_banco(cliente)
+        if self._empresa_id is not None and self._empresa_suportada:
+            dados["empresa_id"] = self._empresa_id
+
+        try:
+            supabase.table("clientes").upsert(dados, on_conflict="id").execute()
+        except Exception as erro:
+            if "empresa_id" in dados and self._coluna_ausente(erro):
+                self._empresa_suportada = False
+                dados.pop("empresa_id", None)
+                supabase.table("clientes").upsert(dados, on_conflict="id").execute()
+            else:
+                raise
 
     # =====================================================
     # CONVERSAO
@@ -297,7 +342,7 @@ class ClienteService:
 
         self.clientes.append(cliente)
 
-        self._salvar()
+        self._inserir(cliente)
 
         return cliente
 
@@ -414,7 +459,7 @@ class ClienteService:
         if ativo is not None:
             cliente.ativo = bool(ativo)
 
-        self._salvar()
+        self._persistir(cliente)
 
         return cliente
 
@@ -432,6 +477,6 @@ class ClienteService:
 
         cliente.ativo = False
 
-        self._salvar()
+        self._persistir(cliente)
 
         return True

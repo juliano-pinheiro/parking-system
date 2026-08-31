@@ -24,6 +24,7 @@ from services.caixa_service import CaixaService
 from services.pagamento_service import PagamentoService
 from services.forma_pagamento_service import FormaPagamentoService
 from services.tabela_preco_service import TabelaPrecoService
+from services.tipo_veiculo_service import TipoVeiculoService
 from services.desconto_service import DescontoService
 from services.cortesia_service import CortesiaService
 from services.mensalista_service import MensalistaService
@@ -36,6 +37,12 @@ from services.perfil_service import PerfilService
 from services.empresa_service import EmpresaService
 from services.dashboard_financeiro_service import DashboardFinanceiroService
 from services.relatorio_service import RelatorioService
+from services.nfse_service import NfseService
+from services.lista_negra_service import ListaNegraService
+from services.reserva_service import ReservaService
+from services.ocorrencia_service import OcorrenciaService
+from services.backup_service import BackupService
+from services.notificacao_service import NotificacaoService
 
 app = Flask(__name__)
 app.secret_key = "estaciona-parking-secret-key-2026"
@@ -55,6 +62,8 @@ servico_pagamentos = PagamentoService(
 )
 servico_formas_pagamento = FormaPagamentoService()
 servico_tabela_precos = TabelaPrecoService()
+servico_tipos_veiculo = TipoVeiculoService()
+servico_tabela_precos.definir_tipos_personalizados(servico_tipos_veiculo.listar(somente_ativos=True))
 servico_descontos = DescontoService()
 servico_cortesias = CortesiaService()
 servico_mensalistas = MensalistaService()
@@ -71,7 +80,74 @@ servico_dashboard_financeiro = DashboardFinanceiroService(
 servico_relatorio = RelatorioService(
     financeiro_service=servico_financeiro,
     nome_estacionamento=servico.config.nome_estacionamento,
+    estacionamento_service=servico,
+    desconto_service=servico_descontos,
+    cortesia_service=servico_cortesias,
+    estorno_service=servico_estornos,
+    mensalista_service=servico_mensalistas,
+    conta_receber_service=servico_contas_receber,
 )
+servico_nfse = NfseService()
+servico_lista_negra = ListaNegraService()
+servico_reservas = ReservaService()
+servico_ocorrencias = OcorrenciaService()
+servico_notificacao = NotificacaoService(
+    mensalista_service=servico_mensalistas,
+    nome_estacionamento=servico.config.nome_estacionamento,
+)
+servico_backup = BackupService(services={
+    "servico": servico,
+    "financeiro": servico_financeiro,
+    "caixa": servico_caixa,
+    "pagamentos": servico_pagamentos,
+    "formas_pagamento": servico_formas_pagamento,
+    "tabela_precos": servico_tabela_precos,
+    "tipos_veiculo": servico_tipos_veiculo,
+    "descontos": servico_descontos,
+    "cortesias": servico_cortesias,
+    "mensalistas": servico_mensalistas,
+    "convenios": servico_convenios,
+    "contas_receber": servico_contas_receber,
+    "estornos": servico_estornos,
+    "clientes": servico_clientes,
+    "nfse": servico_nfse,
+    "lista_negra": servico_lista_negra,
+    "reservas": servico_reservas,
+    "ocorrencias": servico_ocorrencias,
+})
+
+
+def recarregar_services_por_empresa(empresa_id=None):
+    """Recarrega todos os services de dados com o empresa_id ativo.
+
+    Chamado no login e na troca de empresa para isolar os dados por CNPJ.
+    Services globais (empresas, usuarios, perfis, permissoes, auditoria)
+    nao sao recarregados.
+    """
+    eid = empresa_id
+    servico.recarregar(eid)
+    servico_financeiro.recarregar(eid)
+    servico_caixa.recarregar(eid)
+    servico_pagamentos.recarregar(eid)
+    servico_formas_pagamento.recarregar(eid)
+    servico_tabela_precos.recarregar(eid)
+    servico_tipos_veiculo.recarregar(eid)
+    servico_tabela_precos.definir_tipos_personalizados(
+        servico_tipos_veiculo.listar(somente_ativos=True)
+    )
+    servico_descontos.recarregar(eid)
+    servico_cortesias.recarregar(eid)
+    servico_mensalistas.recarregar(eid)
+    servico_convenios.recarregar(eid)
+    servico_contas_receber.recarregar(eid)
+    servico_estornos.recarregar(eid)
+    servico_clientes.recarregar(eid)
+    servico_nfse.recarregar(eid)
+    servico_lista_negra.recarregar(eid)
+    servico_reservas.recarregar(eid)
+    servico_ocorrencias.recarregar(eid)
+    servico_notificacao._mensalistas = servico_mensalistas
+    servico_notificacao._nome_estacionamento = servico.config.nome_estacionamento
 
 
 # ---------------------- AUTENTICACAO ----------------------
@@ -120,6 +196,20 @@ def api_login():
     else:
         session.pop("empresa_id", None)
 
+    # Recarrega os services com a empresa ativa (isolamento por CNPJ)
+    recarregar_services_por_empresa(session.get("empresa_id"))
+
+    # Registra log de acesso
+    try:
+        servico_auditoria.registrar_log_acesso(
+            usuario=usuario.nome,
+            acao="login",
+            modulo="autenticacao",
+            ip=request.remote_addr,
+        )
+    except Exception:
+        pass
+
     dados_retorno = usuario_para_dict(usuario)
     empresa = servico_empresas.buscar_por_id(session.get("empresa_id")) if session.get("empresa_id") else None
     dados_retorno["empresa"] = empresa_para_dict(empresa) if empresa else None
@@ -131,6 +221,17 @@ def api_login():
 @app.route("/api/logout", methods=["POST"])
 def api_logout():
     """Encerra a sessao do usuario."""
+    usuario = usuario_logado()
+    if usuario:
+        try:
+            servico_auditoria.registrar_log_acesso(
+                usuario=usuario.nome,
+                acao="logout",
+                modulo="autenticacao",
+                ip=request.remote_addr,
+            )
+        except Exception:
+            pass
     session.clear()
     return jsonify({"mensagem": "Logout realizado com sucesso."})
 
@@ -200,6 +301,7 @@ def api_trocar_empresa():
         return jsonify({"erro": "Empresa nao encontrada ou inativa."}), 404
 
     session["empresa_id"] = id_empresa
+    recarregar_services_por_empresa(id_empresa)
     servico_auditoria.registrar("empresas", id_empresa, "trocar_empresa", None, empresa.nome_fantasia, usuario.nome)
     return jsonify({"mensagem": f"Empresa alterada para {empresa.nome_fantasia}!", "empresa": empresa_para_dict(empresa)})
 
@@ -344,12 +446,18 @@ def login():
 @app.route("/api/status", methods=["GET"])
 def api_status():
     """Retorna o resumo de vagas (total, ocupadas, livres) e configuracao atual."""
+    ok, erro = verificar_permissao("operacao", "ver")
+    if not ok:
+        return erro
     return jsonify(config_para_dict())
 
 
 @app.route("/api/vagas", methods=["GET"])
 def api_vagas():
     """Retorna o controle de vagas: totais + lista de veiculos estacionados agora."""
+    ok, erro = verificar_permissao("operacao", "ver")
+    if not ok:
+        return erro
     veiculos = sorted(servico.listar_tickets_abertos(), key=lambda t: t.vaga)
     return jsonify({
         "total_vagas": servico.config.total_vagas,
@@ -377,6 +485,9 @@ def formatar_permanencia_media(minutos):
 @app.route("/api/dashboard", methods=["GET"])
 def api_dashboard():
     """Retorna os dados dos cards de resumo do topo do dashboard."""
+    ok, erro = verificar_permissao("operacao", "ver")
+    if not ok:
+        return erro
     resumo = servico.resumo_dashboard()
     return jsonify({
         "no_patio_agora": resumo["no_patio_agora"],
@@ -394,6 +505,9 @@ def api_dashboard():
 @app.route("/api/historico", methods=["GET"])
 def api_historico():
     """Retorna o historico de veiculos que ja sairam do estacionamento."""
+    ok, erro = verificar_permissao("operacao", "ver")
+    if not ok:
+        return erro
     fechados = servico.listar_tickets_fechados()
     return jsonify({"veiculos": [ticket_para_dict(t) for t in fechados]})
 
@@ -403,6 +517,9 @@ def api_historico():
 @app.route("/api/buscar", methods=["GET"])
 def api_buscar():
     """Busca tickets (abertos e fechados) por placa ou numero de ticket."""
+    ok, erro = verificar_permissao("operacao", "ver")
+    if not ok:
+        return erro
     termo = request.args.get("q", "").strip()
     resultados = servico.buscar_tickets(termo)
     resultados = sorted(resultados, key=lambda t: t.numero, reverse=True)
@@ -414,6 +531,10 @@ def api_buscar():
 @app.route("/api/entrada", methods=["POST"])
 def api_registrar_entrada():
     """Registra a entrada de um veiculo (emite ticket)."""
+    ok, erro = verificar_permissao("operacao", "criar")
+    if not ok:
+        return erro
+
     dados = request.get_json(silent=True) or {}
     placa = (dados.get("placa") or "").strip()
     tipo_veiculo = (dados.get("tipo_veiculo") or "Carro").strip()
@@ -424,6 +545,12 @@ def api_registrar_entrada():
 
     if not observacoes:
         return jsonify({"erro": "Informe as observacoes do veiculo (cor, modelo, etc.)."}), 400
+
+    # Lista negra: bloqueia a entrada de veiculos sem autorizacao
+    bloqueio = servico_lista_negra.verificar_placa(placa)
+    if bloqueio is not None:
+        motivo = f"Veiculo na lista negra: {bloqueio.motivo or 'sem motivo informado'}"
+        return jsonify({"erro": motivo, "lista_negra": True}), 403
 
     try:
         ticket = servico.registrar_entrada(placa, tipo_veiculo=tipo_veiculo, observacoes=observacoes)
@@ -441,8 +568,12 @@ def api_registrar_entrada():
 @app.route("/api/saida", methods=["POST"])
 def api_registrar_saida():
     """Registra a saida de um veiculo (busca por ticket ou placa e calcula o valor)."""
+    ok, erro = verificar_permissao("operacao", "criar")
+    if not ok:
+        return erro
+
     dados = request.get_json(silent=True) or {}
-    identificador = (dados.get("identificador") or "").strip()
+    identificador = str(dados.get("identificador") or "").strip()
     forma_pagamento = (dados.get("forma_pagamento") or "").strip() or None
 
     if not identificador:
@@ -453,18 +584,33 @@ def api_registrar_saida():
     if ticket is None:
         return jsonify({"erro": "Nenhum veiculo encontrado com esse ticket/placa (ou ja saiu)."}), 404
 
-    # Gera o pagamento + movimentacao de caixa + lancamento financeiro
-    # (se as tabelas ainda nao existirem, a saida nao e bloqueada)
+    # Gera o pagamento + movimentacao de caixa + lancamento financeiro.
+    # A saida do veiculo nao e bloqueada se o financeiro falhar, mas o erro
+    # e registrado na auditoria e retornado como aviso (nunca ignorado).
+    usuario = usuario_logado()
+    operador = usuario.nome if usuario else "operador"
+    aviso = None
     try:
         servico_pagamentos.registrar_pagamento_ticket(
             ticket,
             forma_pagamento=forma_pagamento or "dinheiro",
-            operador="operador",
+            operador=operador,
         )
-    except Exception:
-        pass
+    except Exception as erro_pagamento:
+        aviso = ("Saida registrada, mas houve falha ao registrar o pagamento "
+                 "no financeiro. Verifique o caixa/financeiro.")
+        try:
+            servico_auditoria.registrar(
+                "pagamentos", ticket.numero, "registrar_pagamento_ticket",
+                None, str(erro_pagamento), operador, request.remote_addr,
+            )
+        except Exception:
+            pass
 
-    return jsonify({"mensagem": "Saida registrada com sucesso!", "ticket": ticket_para_dict(ticket)})
+    resposta = {"mensagem": "Saida registrada com sucesso!", "ticket": ticket_para_dict(ticket)}
+    if aviso:
+        resposta["aviso"] = aviso
+    return jsonify(resposta)
 
 
 # ---------------------- API: RELATORIO ----------------------
@@ -515,6 +661,9 @@ def api_relatorio():
 @app.route("/api/configuracoes", methods=["GET"])
 def api_obter_configuracoes():
     """Retorna as configuracoes atuais (precos e total de vagas)."""
+    ok, erro = verificar_permissao("configuracoes", "ver")
+    if not ok:
+        return erro
     return jsonify(config_para_dict())
 
 
@@ -543,6 +692,9 @@ def _normalizar_valor_config(campo: str, valor) -> any:
 @app.route("/api/configuracoes", methods=["POST"])
 def api_atualizar_configuracoes():
     """Atualiza as configuracoes do estacionamento."""
+    ok, erro = verificar_permissao("configuracoes", "editar")
+    if not ok:
+        return erro
     dados = request.get_json(silent=True) or {}
 
     campos_permitidos = {
@@ -1008,6 +1160,9 @@ def api_clonar_perfil(id_perfil):
 @app.route("/api/clientes", methods=["GET"])
 def api_listar_clientes():
     """Retorna a lista de clientes (mensalistas) cadastrados."""
+    ok, erro = verificar_permissao("clientes", "ver")
+    if not ok:
+        return erro
     clientes = servico_clientes.listar()
     return jsonify({"clientes": [cliente_para_dict(c) for c in clientes]})
 
@@ -1015,6 +1170,9 @@ def api_listar_clientes():
 @app.route("/api/clientes", methods=["POST"])
 def api_criar_cliente():
     """Cria um novo cliente mensalista."""
+    ok, erro = verificar_permissao("clientes", "criar")
+    if not ok:
+        return erro
     dados = request.get_json(silent=True) or {}
 
     nome = (dados.get("nome") or "").strip()
@@ -1042,6 +1200,9 @@ def api_criar_cliente():
 @app.route("/api/clientes/<int:id_cliente>", methods=["GET"])
 def api_obter_cliente(id_cliente: int):
     """Retorna um cliente especifico pelo id."""
+    ok, erro = verificar_permissao("clientes", "ver")
+    if not ok:
+        return erro
     cliente = servico_clientes.buscar_por_id(id_cliente)
     if cliente is None:
         return jsonify({"erro": "Cliente nao encontrado."}), 404
@@ -1051,6 +1212,9 @@ def api_obter_cliente(id_cliente: int):
 @app.route("/api/clientes/<int:id_cliente>", methods=["PUT"])
 def api_atualizar_cliente(id_cliente: int):
     """Atualiza os dados de um cliente existente."""
+    ok, erro = verificar_permissao("clientes", "editar")
+    if not ok:
+        return erro
     dados = request.get_json(silent=True) or {}
 
     nome = dados.get("nome")
@@ -1090,6 +1254,9 @@ def api_atualizar_cliente(id_cliente: int):
 @app.route("/api/clientes/<int:id_cliente>", methods=["DELETE"])
 def api_excluir_cliente(id_cliente: int):
     """Desativa/exclui um cliente."""
+    ok, erro = verificar_permissao("clientes", "excluir")
+    if not ok:
+        return erro
     if not servico_clientes.excluir(id_cliente):
         return jsonify({"erro": "Cliente nao encontrado."}), 404
     return jsonify({"mensagem": "Cliente desativado com sucesso!"})
@@ -1100,6 +1267,9 @@ def api_excluir_cliente(id_cliente: int):
 @app.route("/api/financeiro", methods=["GET"])
 def api_listar_financeiro():
     """Retorna a lista de lancamentos financeiros (com filtro opcional por periodo)."""
+    ok, erro = verificar_permissao("financeiro", "ver")
+    if not ok:
+        return erro
     periodo = request.args.get("periodo", "").strip() or None
 
     lancamentos = servico_financeiro.listar()
@@ -1120,6 +1290,9 @@ def api_listar_financeiro():
 @app.route("/api/financeiro", methods=["POST"])
 def api_criar_financeiro():
     """Cria um novo lancamento financeiro (manual)."""
+    ok, erro = verificar_permissao("financeiro", "criar")
+    if not ok:
+        return erro
     dados = request.get_json(silent=True) or {}
 
     tipo = (dados.get("tipo") or "").strip()
@@ -1149,6 +1322,9 @@ def api_criar_financeiro():
 @app.route("/api/financeiro/<int:id_lancamento>", methods=["GET"])
 def api_obter_financeiro(id_lancamento: int):
     """Retorna um lancamento especifico pelo id."""
+    ok, erro = verificar_permissao("financeiro", "ver")
+    if not ok:
+        return erro
     lancamento = servico_financeiro.buscar_por_id(id_lancamento)
     if lancamento is None:
         return jsonify({"erro": "Lancamento nao encontrado."}), 404
@@ -1158,6 +1334,9 @@ def api_obter_financeiro(id_lancamento: int):
 @app.route("/api/financeiro/<int:id_lancamento>", methods=["PUT"])
 def api_atualizar_financeiro(id_lancamento: int):
     """Atualiza os dados de um lancamento financeiro."""
+    ok, erro = verificar_permissao("financeiro", "editar")
+    if not ok:
+        return erro
     dados = request.get_json(silent=True) or {}
 
     tipo = dados.get("tipo")
@@ -1193,6 +1372,9 @@ def api_atualizar_financeiro(id_lancamento: int):
 @app.route("/api/financeiro/<int:id_lancamento>", methods=["DELETE"])
 def api_excluir_financeiro(id_lancamento: int):
     """Exclui um lancamento financeiro."""
+    ok, erro = verificar_permissao("financeiro", "excluir")
+    if not ok:
+        return erro
     if not servico_financeiro.excluir(id_lancamento):
         return jsonify({"erro": "Lancamento nao encontrado."}), 404
     return jsonify({"mensagem": "Lancamento excluido com sucesso!"})
@@ -1201,6 +1383,9 @@ def api_excluir_financeiro(id_lancamento: int):
 @app.route("/api/financeiro/resumo", methods=["GET"])
 def api_resumo_financeiro():
     """Retorna o resumo financeiro por periodo (diario|semanal|mensal)."""
+    ok, erro = verificar_permissao("financeiro", "ver")
+    if not ok:
+        return erro
     periodo = request.args.get("periodo", "diario").strip() or "diario"
 
     try:
@@ -1477,6 +1662,167 @@ def api_calcular_valor():
         return jsonify({"erro": "Informe entrada e saida."}), 400
     valor = servico_tabela_precos.calcular_valor(entrada, saida, tipo_veiculo, noturno, fim_semana, feriado)
     return jsonify({"valor": valor})
+
+
+# ---------------------- API: TIPOS DE VEICULO ----------------------
+
+@app.route("/api/tipos-veiculo", methods=["GET"])
+def api_listar_tipos_veiculo():
+    """Retorna os tipos de veiculo (sistema + personalizados).
+
+    Tipos do sistema exibem os precos reais da tabela de precos (onde
+    ficam gravados); personalizados mostram os precos proprios.
+    """
+    ok, erro = verificar_permissao("configuracoes", "ver")
+    if not ok:
+        return erro
+    tipos = servico_tipos_veiculo.listar()
+    tabela = servico_tabela_precos.obter_vigente()
+    resultado = []
+    for t in tipos:
+        dados = t.to_dict()
+        if t.sistema:
+            from services.tabela_preco_service import TIPO_VEICULO_CHAVE
+            chave = TIPO_VEICULO_CHAVE.get(t.nome, "carro")
+            for campo in ("primeira_hora", "hora_adicional", "diaria", "valor_minuto", "valor_maximo_diario", "mensal"):
+                dados[campo] = (
+                    getattr(tabela, campo) if chave == "carro"
+                    else getattr(tabela, f"{chave}_{campo}")
+                )
+        resultado.append(dados)
+    return jsonify({"tipos_veiculo": resultado})
+
+
+@app.route("/api/tipos-veiculo", methods=["POST"])
+def api_criar_tipo_veiculo():
+    """Cria um tipo de veiculo personalizado (com precos opcionais)."""
+    ok, erro = verificar_permissao("configuracoes", "editar")
+    if not ok:
+        return erro
+    dados = request.get_json(silent=True) or {}
+    try:
+        tipo = servico_tipos_veiculo.criar(
+            nome=dados.get("nome", ""),
+            precos={
+                "primeira_hora": dados.get("primeira_hora"),
+                "hora_adicional": dados.get("hora_adicional"),
+                "diaria": dados.get("diaria"),
+                "valor_minuto": dados.get("valor_minuto"),
+                "valor_maximo_diario": dados.get("valor_maximo_diario"),
+                "mensal": dados.get("mensal"),
+            },
+        )
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+
+    servico_tabela_precos.definir_tipos_personalizados(
+        servico_tipos_veiculo.listar(somente_ativos=True)
+    )
+    servico_auditoria.registrar(
+        "tipos_veiculo", tipo.id, "criar", None, tipo.nome,
+        session.get("usuario", {}).get("nome"), request.remote_addr,
+    )
+    return jsonify({"mensagem": "Tipo de veiculo criado!", "tipo_veiculo": tipo.to_dict()}), 201
+
+
+@app.route("/api/tipos-veiculo/<int:id_tipo>", methods=["PUT"])
+def api_atualizar_tipo_veiculo(id_tipo: int):
+    """Atualiza um tipo de veiculo.
+
+    Personalizado: nome + precos proprios (tabela tipos_veiculo).
+    Sistema: apenas precos, gravados na tabela de precos (nome fixo).
+    """
+    ok, erro = verificar_permissao("configuracoes", "editar")
+    if not ok:
+        return erro
+    dados = request.get_json(silent=True) or {}
+    tipo = servico_tipos_veiculo.buscar_por_id(id_tipo)
+    if tipo is None:
+        return jsonify({"erro": "Tipo de veiculo nao encontrado."}), 404
+
+    precos = {
+        "primeira_hora": dados.get("primeira_hora"),
+        "hora_adicional": dados.get("hora_adicional"),
+        "diaria": dados.get("diaria"),
+        "valor_minuto": dados.get("valor_minuto"),
+        "valor_maximo_diario": dados.get("valor_maximo_diario"),
+        "mensal": dados.get("mensal"),
+    }
+
+    if tipo.sistema:
+        tabela = servico_tabela_precos.atualizar_precos_por_nome_tipo(tipo.nome, precos)
+        if tabela is None:
+            return jsonify({"erro": "Nao foi possivel atualizar os precos."}), 400
+        descricao = f"{tipo.nome} (precos)"
+    else:
+        try:
+            tipo = servico_tipos_veiculo.atualizar(
+                id_tipo,
+                nome=dados.get("nome", ""),
+                precos=precos,
+            )
+        except ValueError as erro:
+            return jsonify({"erro": str(erro)}), 400
+        if tipo is None:
+            return jsonify({"erro": "Tipo de veiculo nao encontrado."}), 404
+        descricao = tipo.nome
+
+    servico_tabela_precos.definir_tipos_personalizados(
+        servico_tipos_veiculo.listar(somente_ativos=True)
+    )
+    servico_auditoria.registrar(
+        "tipos_veiculo", id_tipo, "editar", None, descricao,
+        session.get("usuario", {}).get("nome"), request.remote_addr,
+    )
+    return jsonify({"mensagem": "Tipo de veiculo atualizado!", "tipo_veiculo": tipo.to_dict()})
+
+
+@app.route("/api/tipos-veiculo/<int:id_tipo>/alternar-ativo", methods=["POST"])
+def api_alternar_ativo_tipo_veiculo(id_tipo: int):
+    """Ativa ou inativa um tipo personalizado."""
+    ok, erro = verificar_permissao("configuracoes", "editar")
+    if not ok:
+        return erro
+    try:
+        tipo = servico_tipos_veiculo.alternar_ativo(id_tipo)
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+    if tipo is None:
+        return jsonify({"erro": "Tipo de veiculo nao encontrado."}), 404
+
+    servico_tabela_precos.definir_tipos_personalizados(
+        servico_tipos_veiculo.listar(somente_ativos=True)
+    )
+    acao = "ativar" if tipo.ativo else "inativar"
+    servico_auditoria.registrar(
+        "tipos_veiculo", id_tipo, acao, None, tipo.nome,
+        session.get("usuario", {}).get("nome"), request.remote_addr,
+    )
+    return jsonify({"mensagem": f"Tipo '{tipo.nome}' {'ativado' if tipo.ativo else 'inativado'}!", "tipo_veiculo": tipo.to_dict()})
+
+
+@app.route("/api/tipos-veiculo/<int:id_tipo>", methods=["DELETE"])
+def api_excluir_tipo_veiculo(id_tipo: int):
+    """Exclui um tipo de veiculo personalizado (tipos do sistema nao podem)."""
+    ok, erro = verificar_permissao("configuracoes", "editar")
+    if not ok:
+        return erro
+    tipo = servico_tipos_veiculo.buscar_por_id(id_tipo)
+    try:
+        if not servico_tipos_veiculo.excluir(id_tipo):
+            return jsonify({"erro": "Tipo de veiculo nao encontrado."}), 404
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+
+    servico_tabela_precos.definir_tipos_personalizados(
+        servico_tipos_veiculo.listar(somente_ativos=True)
+    )
+    servico_auditoria.registrar(
+        "tipos_veiculo", id_tipo, "excluir",
+        tipo.nome if tipo else None, None,
+        session.get("usuario", {}).get("nome"), request.remote_addr,
+    )
+    return jsonify({"mensagem": "Tipo de veiculo excluido!"})
 
 
 # ---------------------- API: DESCONTOS ----------------------
@@ -1824,6 +2170,9 @@ def api_listar_estornos():
 @app.route("/api/auditoria", methods=["GET"])
 def api_listar_auditoria():
     """Retorna os registros de auditoria."""
+    ok, erro = verificar_permissao("auditoria", "ver")
+    if not ok:
+        return erro
     registros = servico_auditoria.listar()
     return jsonify({"auditoria": [a.to_dict() for a in registros]})
 
@@ -1831,6 +2180,9 @@ def api_listar_auditoria():
 @app.route("/api/logs-acesso", methods=["GET"])
 def api_listar_logs_acesso():
     """Retorna os logs de acesso."""
+    ok, erro = verificar_permissao("auditoria", "ver")
+    if not ok:
+        return erro
     logs = servico_auditoria.listar_logs()
     return jsonify({"logs_acesso": [l.to_dict() for l in logs]})
 
@@ -1887,6 +2239,408 @@ def api_relatorio_financeiro_exportar():
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename=relatorio_financeiro_{agrupamento}.csv"},
     )
+
+
+# ---------------------- API: NFSE ----------------------
+
+@app.route("/api/nfse", methods=["GET"])
+def api_listar_nfse():
+    """Retorna as notas fiscais emitidas."""
+    ok, erro = verificar_permissao("nfse", "ver")
+    if not ok:
+        return erro
+    notas = servico_nfse.listar()
+    notas = sorted(notas, key=lambda n: n.numero, reverse=True)
+    return jsonify({"notas": [n.to_dict() for n in notas]})
+
+
+@app.route("/api/nfse", methods=["POST"])
+def api_emitir_nfse():
+    """Emite uma NFSe simplificada."""
+    ok, erro = verificar_permissao("nfse", "criar")
+    if not ok:
+        return erro
+    dados = request.get_json(silent=True) or {}
+    try:
+        nota = servico_nfse.emitir(
+            valor=dados.get("valor", 0),
+            ticket_numero=dados.get("ticket_numero"),
+            placa=dados.get("placa", ""),
+            cpf_cnpj=dados.get("cpf_cnpj", ""),
+            razao_social=dados.get("razao_social", ""),
+            servico=dados.get("servico", "Estacionamento de veiculos"),
+            usuario=usuario_logado().nome if usuario_logado() else "operador",
+        )
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+    servico_auditoria.registrar("nfse", nota.numero, "emitir", None, "nota emitida", usuario_logado().nome if usuario_logado() else "")
+    return jsonify({"mensagem": "Nota emitida com sucesso!", "nota": nota.to_dict()}), 201
+
+
+@app.route("/api/nfse/<int:id_nota>/cancelar", methods=["POST"])
+def api_cancelar_nfse(id_nota: int):
+    """Cancela uma NFSe (logico)."""
+    ok, erro = verificar_permissao("nfse", "cancelar")
+    if not ok:
+        return erro
+    nota = servico_nfse.cancelar(id_nota, autorizador=usuario_logado().nome if usuario_logado() else "")
+    if nota is None:
+        return jsonify({"erro": "Nota nao encontrada."}), 404
+    return jsonify({"mensagem": "Nota cancelada!", "nota": nota.to_dict()})
+
+
+# ---------------------- API: LISTA NEGRA ----------------------
+
+@app.route("/api/lista-negra", methods=["GET"])
+def api_listar_lista_negra():
+    """Retorna os veiculos bloqueados."""
+    ok, erro = verificar_permissao("lista_negra", "ver")
+    if not ok:
+        return erro
+    registros = servico_lista_negra.listar()
+    registros = sorted(registros, key=lambda r: r.data, reverse=True)
+    return jsonify({"registros": [r.to_dict() for r in registros]})
+
+
+@app.route("/api/lista-negra", methods=["POST"])
+def api_criar_lista_negra():
+    """Bloqueia um veiculo."""
+    ok, erro = verificar_permissao("lista_negra", "criar")
+    if not ok:
+        return erro
+    dados = request.get_json(silent=True) or {}
+    try:
+        registro = servico_lista_negra.criar(
+            placa=dados.get("placa", ""),
+            motivo=dados.get("motivo", ""),
+            usuario=usuario_logado().nome if usuario_logado() else "operador",
+        )
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+    return jsonify({"mensagem": "Veiculo bloqueado!", "registro": registro.to_dict()}), 201
+
+
+@app.route("/api/lista-negra/<int:id_registro>", methods=["PUT"])
+def api_atualizar_lista_negra(id_registro: int):
+    """Atualiza um registro da lista negra."""
+    ok, erro = verificar_permissao("lista_negra", "editar")
+    if not ok:
+        return erro
+    dados = request.get_json(silent=True) or {}
+    try:
+        registro = servico_lista_negra.atualizar(
+            id_registro,
+            placa=dados.get("placa"),
+            motivo=dados.get("motivo"),
+            ativo=dados.get("ativo"),
+        )
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+    if registro is None:
+        return jsonify({"erro": "Registro nao encontrado."}), 404
+    return jsonify({"mensagem": "Registro atualizado!", "registro": registro.to_dict()})
+
+
+@app.route("/api/lista-negra/<int:id_registro>/alternar-ativo", methods=["POST"])
+def api_alternar_lista_negra(id_registro: int):
+    """Ativa/inativa o bloqueio de um veiculo."""
+    ok, erro = verificar_permissao("lista_negra", "editar")
+    if not ok:
+        return erro
+    registro = servico_lista_negra.buscar_por_id(id_registro)
+    if registro is None:
+        return jsonify({"erro": "Registro nao encontrado."}), 404
+    registro = servico_lista_negra.atualizar(id_registro, ativo=not registro.ativo)
+    return jsonify({"mensagem": "Status atualizado!", "registro": registro.to_dict()})
+
+
+@app.route("/api/lista-negra/<int:id_registro>", methods=["DELETE"])
+def api_excluir_lista_negra(id_registro: int):
+    """Remove o bloqueio (exclusao logica)."""
+    ok, erro = verificar_permissao("lista_negra", "excluir")
+    if not ok:
+        return erro
+    if not servico_lista_negra.excluir(id_registro):
+        return jsonify({"erro": "Registro nao encontrado."}), 404
+    return jsonify({"mensagem": "Bloqueio removido!"})
+
+
+# ---------------------- API: RESERVAS ----------------------
+
+@app.route("/api/reservas", methods=["GET"])
+def api_listar_reservas():
+    """Retorna as reservas de vaga."""
+    ok, erro = verificar_permissao("reservas", "ver")
+    if not ok:
+        return erro
+    reservas = servico_reservas.listar()
+    reservas = sorted(reservas, key=lambda r: r.data_inicio, reverse=True)
+    return jsonify({"reservas": [r.to_dict() for r in reservas]})
+
+
+@app.route("/api/reservas", methods=["POST"])
+def api_criar_reserva():
+    """Cria uma reserva de vaga."""
+    ok, erro = verificar_permissao("reservas", "criar")
+    if not ok:
+        return erro
+    dados = request.get_json(silent=True) or {}
+    try:
+        reserva = servico_reservas.criar(
+            cliente=dados.get("cliente", ""),
+            data_inicio=dados.get("data_inicio", ""),
+            data_fim=dados.get("data_fim", ""),
+            telefone=dados.get("telefone", ""),
+            placa=dados.get("placa", ""),
+            tipo_veiculo=dados.get("tipo_veiculo", "Carro"),
+            vaga=dados.get("vaga"),
+            valor=dados.get("valor", 0),
+            observacao=dados.get("observacao", ""),
+            usuario=usuario_logado().nome if usuario_logado() else "operador",
+        )
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+    return jsonify({"mensagem": "Reserva criada!", "reserva": reserva.to_dict()}), 201
+
+
+@app.route("/api/reservas/<int:id_reserva>", methods=["PUT"])
+def api_atualizar_reserva(id_reserva: int):
+    """Atualiza uma reserva."""
+    ok, erro = verificar_permissao("reservas", "editar")
+    if not ok:
+        return erro
+    dados = request.get_json(silent=True) or {}
+    try:
+        reserva = servico_reservas.atualizar(
+            id_reserva,
+            cliente=dados.get("cliente"),
+            data_inicio=dados.get("data_inicio"),
+            data_fim=dados.get("data_fim"),
+            telefone=dados.get("telefone"),
+            placa=dados.get("placa"),
+            tipo_veiculo=dados.get("tipo_veiculo"),
+            vaga=dados.get("vaga"),
+            valor=dados.get("valor"),
+            observacao=dados.get("observacao"),
+            status=dados.get("status"),
+        )
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+    if reserva is None:
+        return jsonify({"erro": "Reserva nao encontrada."}), 404
+    return jsonify({"mensagem": "Reserva atualizada!", "reserva": reserva.to_dict()})
+
+
+@app.route("/api/reservas/<int:id_reserva>/cancelar", methods=["POST"])
+def api_cancelar_reserva(id_reserva: int):
+    """Cancela uma reserva."""
+    ok, erro = verificar_permissao("reservas", "editar")
+    if not ok:
+        return erro
+    reserva = servico_reservas.buscar_por_id(id_reserva)
+    if reserva is None:
+        return jsonify({"erro": "Reserva nao encontrada."}), 404
+    reserva = servico_reservas.atualizar(id_reserva, status="cancelada")
+    return jsonify({"mensagem": "Reserva cancelada!", "reserva": reserva.to_dict()})
+
+
+# ---------------------- API: OCORRENCIAS ----------------------
+
+@app.route("/api/ocorrencias", methods=["GET"])
+def api_listar_ocorrencias():
+    """Retorna as ocorrencias registradas."""
+    ok, erro = verificar_permissao("ocorrencias", "ver")
+    if not ok:
+        return erro
+    ocorrencias = servico_ocorrencias.listar()
+    ocorrencias = sorted(ocorrencias, key=lambda o: o.data, reverse=True)
+    return jsonify({"ocorrencias": [o.to_dict() for o in ocorrencias]})
+
+
+@app.route("/api/ocorrencias", methods=["POST"])
+def api_criar_ocorrencia():
+    """Registra uma ocorrencia."""
+    ok, erro = verificar_permissao("ocorrencias", "criar")
+    if not ok:
+        return erro
+    dados = request.get_json(silent=True) or {}
+    try:
+        ocorrencia = servico_ocorrencias.criar(
+            tipo=dados.get("tipo", "avaria"),
+            placa=dados.get("placa", ""),
+            descricao=dados.get("descricao", ""),
+            ticket_numero=dados.get("ticket_numero"),
+            usuario=usuario_logado().nome if usuario_logado() else "operador",
+            autorizador=dados.get("autorizador", ""),
+        )
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+    return jsonify({"mensagem": "Ocorrencia registrada!", "ocorrencia": ocorrencia.to_dict()}), 201
+
+
+@app.route("/api/ocorrencias/<int:id_ocorrencia>", methods=["PUT"])
+def api_atualizar_ocorrencia(id_ocorrencia: int):
+    """Atualiza uma ocorrencia."""
+    ok, erro = verificar_permissao("ocorrencias", "editar")
+    if not ok:
+        return erro
+    dados = request.get_json(silent=True) or {}
+    try:
+        ocorrencia = servico_ocorrencias.atualizar(
+            id_ocorrencia,
+            tipo=dados.get("tipo"),
+            placa=dados.get("placa"),
+            descricao=dados.get("descricao"),
+            ticket_numero=dados.get("ticket_numero"),
+            status=dados.get("status"),
+            autorizador=dados.get("autorizador"),
+        )
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+    if ocorrencia is None:
+        return jsonify({"erro": "Ocorrencia nao encontrada."}), 404
+    return jsonify({"mensagem": "Ocorrencia atualizada!", "ocorrencia": ocorrencia.to_dict()})
+
+
+# ---------------------- API: NOTIFICACOES DE VENCIMENTO ----------------------
+
+@app.route("/api/notificacoes-vencimento", methods=["GET"])
+def api_notificacoes_vencimento():
+    """Retorna a central de avisos de vencimento de mensalistas."""
+    ok, erro = verificar_permissao("notificacoes", "ver")
+    if not ok:
+        return erro
+    return jsonify(servico_notificacao.gerar_avisos())
+
+
+# ---------------------- API: BACKUP / EXPORTACAO ----------------------
+
+@app.route("/api/backup", methods=["GET"])
+def api_backup():
+    """Exporta o backup completo (JSON) da empresa ativa.
+    Restrito a quem pode editar usuarios (na pratica, admin)."""
+    ok, erro = verificar_permissao("usuarios", "editar")
+    if not ok:
+        return erro
+    from flask import Response
+    backup = servico_backup.gerar(nome_estacionamento=servico.config.nome_estacionamento)
+    import json
+    return Response(
+        json.dumps(backup, ensure_ascii=False, indent=2, default=str),
+        mimetype="application/json",
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            )
+        },
+    )
+
+
+# ---------------------- API: RELATORIO DE OCUPACAO E DRE ----------------------
+
+@app.route("/api/relatorio-ocupacao", methods=["GET"])
+def api_relatorio_ocupacao():
+    """Retorna a ocupacao atual e por tipo de veiculo."""
+    ok, erro = verificar_permissao("relatorios", "ver")
+    if not ok:
+        return erro
+    return jsonify(servico_relatorio.relatorio_ocupacao())
+
+
+@app.route("/api/relatorio-dre", methods=["GET"])
+def api_relatorio_dre():
+    """Retorna o DRE simples (receita, descontos, cortesias, estornos)."""
+    ok, erro = verificar_permissao("relatorios", "ver")
+    if not ok:
+        return erro
+    return jsonify(servico_relatorio.relatorio_dre())
+
+
+# ---------------------- API: TICKET PERDIDO ----------------------
+
+@app.route("/api/ticket-perdido", methods=["POST"])
+def api_ticket_perdido():
+    """Registra um ticket perdido: cobra a tarifa de ticket perdido e
+    gera pagamento + movimentacao + lancamento financeiro.
+    Requer autorizacao (admin/supervisor) ou parametro 'autorizado'.
+    """
+    ok, erro = verificar_permissao("operacao", "criar")
+    if not ok:
+        return erro
+
+    dados = request.get_json(silent=True) or {}
+    placa = (dados.get("placa") or "").strip()
+    observacoes = (dados.get("observacoes") or "").strip()
+    forma_pagamento = (dados.get("forma_pagamento") or "dinheiro").strip() or "dinheiro"
+    autorizador = (dados.get("autorizador") or "").strip()
+
+    usuario = usuario_logado()
+    perfil = usuario.perfil if usuario else ""
+    if perfil != "admin" and not servico_permissao.pode(perfil, "operacao", "autorizar") and not autorizador:
+        return jsonify({"erro": "Ticket perdido requer autorizacao de admin/supervisor."}), 403
+
+    tabela = servico_tabela_precos.obter_vigente()
+    valor = dados.get("valor")
+    if valor is None or float(valor) <= 0:
+        valor = getattr(tabela, "valor_ticket_perdido", 0) or 0
+    if not valor or float(valor) <= 0:
+        return jsonify({"erro": "Configure a tarifa de ticket perdido na tabela de precos."}), 400
+    valor = round(float(valor), 2)
+
+    if not observacoes:
+        return jsonify({"erro": "Informe as observacoes do ticket perdido."}), 400
+
+    # Gera um ticket fechado (perdido) com o valor da tarifa
+    import random
+    numero = max(servico.config.proximo_numero_ticket, servico.persistencia.proximo_numero_global())
+    from models.ticket import Ticket
+    agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    ticket = Ticket(
+        numero=numero,
+        placa=placa.upper() or f"PERDIDO-{numero}",
+        entrada=agora,
+        saida=agora,
+        valor=valor,
+        vaga=None,
+        status="FECHADO",
+        tipo_veiculo=(dados.get("tipo_veiculo") or "Carro").strip() or "Carro",
+        observacoes=f"TICKET PERDIDO - {observacoes}",
+        forma_pagamento=forma_pagamento,
+        empresa_id=servico.empresa_id,
+    )
+    servico.tickets.append(ticket)
+    servico.config.proximo_numero_ticket = numero + 1
+    servico._salvar_tudo()
+
+    operador = usuario.nome if usuario else "operador"
+    aviso = None
+    try:
+        servico_pagamentos.registrar_pagamento_ticket(
+            ticket, forma_pagamento=forma_pagamento, operador=operador,
+        )
+    except Exception as erro_pagamento:
+        aviso = "Ticket perdido registrado, mas houve falha ao registrar o pagamento no financeiro."
+        try:
+            servico_auditoria.registrar(
+                "pagamentos", ticket.numero, "ticket_perdido", None, str(erro_pagamento),
+                operador, request.remote_addr,
+            )
+        except Exception:
+            pass
+
+    try:
+        servico_auditoria.registrar(
+            "operacao", ticket.numero, "ticket_perdido", None,
+            f"Ticket perdido cobrado ({valor:.2f}) autorizado por {autorizador or perfil or 'admin'}",
+            operador, request.remote_addr,
+        )
+    except Exception:
+        pass
+
+    resposta = {"mensagem": "Ticket perdido registrado!", "ticket": ticket_para_dict(ticket)}
+    if aviso:
+        resposta["aviso"] = aviso
+    return jsonify(resposta), 201
 
 
 if __name__ == "__main__":

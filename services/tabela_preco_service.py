@@ -36,13 +36,18 @@ class TabelaPrecoService(BaseSupabaseService):
     """Regras de negocio e persistencia da tabela de precos."""
 
     TABELA = "tabela_precos"
+    SCOPED_EMPRESA = True
     MODELO = TabelaPreco
     CAMPOS_DATA = ("criado_em", "alterado_em")
 
-    def __init__(self):
+    def __init__(self, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
+        # Tipos de veiculo personalizados (TipoVeiculoService): nome em
+        # minusculo -> dict de precos. Atualizado pelo app.py.
+        self.tipos_personalizados: dict = {}
         self._registros: List[TabelaPreco] = self._carregar()
         if not self._registros:
-            self._registros.append(TabelaPreco(id=1))
+            self._registros.append(TabelaPreco(id=1, empresa_id=getattr(self, "_empresa_id", None)))
             try:
                 self._persistir()
             except ValueError:
@@ -50,12 +55,47 @@ class TabelaPrecoService(BaseSupabaseService):
                 # sera persistida quando a tabela for criada.
                 pass
 
+    def definir_tipos_personalizados(self, tipos: List) -> None:
+        """Recebe os tipos personalizados (models TipoVeiculo) para o calculo."""
+        self.tipos_personalizados = {
+            t.nome.lower(): {
+                "primeira_hora": t.primeira_hora,
+                "hora_adicional": t.hora_adicional,
+                "diaria": t.diaria,
+                "valor_minuto": t.valor_minuto,
+                "valor_maximo_diario": t.valor_maximo_diario,
+                "mensal": t.mensal,
+            }
+            for t in tipos
+            if getattr(t, "ativo", True)
+        }
+
     def obter_vigente(self) -> TabelaPreco:
         """Retorna a tabela de precos ativa (ou a primeira)."""
         for tabela in self._registros:
             if tabela.ativo:
                 return tabela
         return self._registros[0] if self._registros else TabelaPreco(id=1)
+
+    def atualizar_precos_por_nome_tipo(self, tipo_veiculo: str, precos: dict) -> Optional[TabelaPreco]:
+        """Atualiza os precos de um tipo do sistema (Carro, Moto, Carro Grande,
+        Caminhonete) diretamente na tabela de precos."""
+        chave = TIPO_VEICULO_CHAVE.get((tipo_veiculo or "").strip())
+        if not chave:
+            return None
+        tabela = self.obter_vigente()
+
+        dados = {}
+        for campo in CAMPOS_PRECO_TIPO:
+            valor = (precos or {}).get(campo)
+            if valor is None:
+                continue
+            destino = campo if chave == "carro" else f"{chave}_{campo}"
+            dados[destino] = valor
+
+        if not dados:
+            return tabela
+        return self.atualizar(tabela.id, dados)
 
     def atualizar(self, id_tabela: int, dados: dict) -> Optional[TabelaPreco]:
         tabela = self.buscar_por_id(id_tabela)
@@ -68,6 +108,7 @@ class TabelaPrecoService(BaseSupabaseService):
             "valor_noturno", "fim_semana", "feriados", "ativo",
             "fracionamento_minutos", "tarifa_minima",
             "meia_estadia_minutos", "meia_estadia_valor",
+            "valor_ticket_perdido", "pernoite_valor", "pernoite_a_partir_horas",
         ]
         # Campos de preco por tipo de veiculo
         for tipo in TIPOS_VEICULO:
@@ -79,7 +120,7 @@ class TabelaPrecoService(BaseSupabaseService):
         for campo in campos:
             if campo in dados and dados[campo] is not None:
                 valor = dados[campo]
-                if campo in ("tolerancia_minutos", "fracionamento_minutos", "meia_estadia_minutos"):
+                if campo in ("tolerancia_minutos", "fracionamento_minutos", "meia_estadia_minutos", "pernoite_a_partir_horas"):
                     setattr(tabela, campo, int(valor))
                 elif campo == "ativo":
                     setattr(tabela, campo, bool(valor))
@@ -98,11 +139,13 @@ class TabelaPrecoService(BaseSupabaseService):
         """
         Retorna um dicionario com os precos do tipo de veiculo informado.
         Para 'carro' (ou tipo desconhecido) usa os campos padrao.
+        Tipos personalizados usam seus precos proprios; campos zerados
+        herdam o preco de carro.
         """
         tabela = self.obter_vigente()
         chave = TIPO_VEICULO_CHAVE.get(tipo_veiculo, "carro")
         if chave == "carro":
-            return {
+            precos_carro = {
                 "primeira_hora": tabela.primeira_hora,
                 "hora_adicional": tabela.hora_adicional,
                 "diaria": tabela.diaria,
@@ -110,6 +153,14 @@ class TabelaPrecoService(BaseSupabaseService):
                 "valor_maximo_diario": tabela.valor_maximo_diario,
                 "mensal": tabela.mensal,
             }
+            # Tipo personalizado (ou nome nao mapeado): preco proprio se houver
+            personalizado = self.tipos_personalizados.get((tipo_veiculo or "").lower())
+            if personalizado:
+                return {
+                    campo: personalizado.get(campo) or precos_carro[campo]
+                    for campo in precos_carro
+                }
+            return precos_carro
         return {
             "primeira_hora": getattr(tabela, f"{chave}_primeira_hora"),
             "hora_adicional": getattr(tabela, f"{chave}_hora_adicional"),
@@ -190,6 +241,15 @@ class TabelaPrecoService(BaseSupabaseService):
         # Teto diario
         if precos["valor_maximo_diario"] and precos["valor_maximo_diario"] > 0:
             valor = min(valor, precos["valor_maximo_diario"])
+
+        # Pernoite: a partir de X horas, aplica a tarifa de pernoite
+        # como teto (nunca cobra mais que a tarifa de pernoite).
+        if (
+            tabela.pernoite_valor and tabela.pernoite_valor > 0
+            and tabela.pernoite_a_partir_horas and tabela.pernoite_a_partir_horas > 0
+            and minutos >= tabela.pernoite_a_partir_horas * 60
+        ):
+            valor = min(valor, tabela.pernoite_valor)
 
         # Regras especiais (noturno, fim de semana, feriado)
         if noturno and tabela.valor_noturno and tabela.valor_noturno > 0:

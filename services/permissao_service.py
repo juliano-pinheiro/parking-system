@@ -37,6 +37,7 @@ ACOES_VALIDAS = (
 
 # Modulos do sistema (para a interface de permissoes)
 MODULOS = (
+    "operacao",
     "caixa",
     "pagamentos",
     "formas_pagamento",
@@ -51,6 +52,14 @@ MODULOS = (
     "dashboard_financeiro",
     "relatorios",
     "usuarios",
+    "clientes",
+    "financeiro",
+    "configuracoes",
+    "nfse",
+    "lista_negra",
+    "reservas",
+    "ocorrencias",
+    "notificacoes",
 )
 
 # Matriz padrao de permissoes: modulo -> perfil -> lista de acoes.
@@ -58,6 +67,11 @@ MODULOS = (
 # Aplica-se tambem a perfis personalizados como fallback ate que sejam
 # configurados explicitamente.
 PERMISSOES_PADRAO = {
+    "operacao": {
+        "operador": [ACAO_VER, ACAO_CRIAR],
+        "supervisor": [ACAO_VER, ACAO_CRIAR],
+        "manobrista": [ACAO_VER, ACAO_CRIAR],
+    },
     "caixa": {
         "operador": [ACAO_VER, ACAO_CRIAR, ACAO_FECHAR_CAIXA],
         "supervisor": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR, ACAO_FECHAR_CAIXA],
@@ -128,6 +142,53 @@ PERMISSOES_PADRAO = {
         "supervisor": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR],
         "manobrista": [ACAO_VER],
     },
+    "clientes": {
+        "operador": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR],
+        "supervisor": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR, ACAO_EXCLUIR],
+        "manobrista": [ACAO_VER],
+    },
+    "financeiro": {
+        "operador": [ACAO_VER, ACAO_CRIAR],
+        "supervisor": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR, ACAO_EXCLUIR],
+        "manobrista": [ACAO_VER],
+    },
+    # Configuracoes do estacionamento (nome, vagas, precos, ticket, PIX):
+    # visualizacao para todos, edicao exclusiva de admin.
+    "configuracoes": {
+        "operador": [ACAO_VER],
+        "supervisor": [ACAO_VER],
+        "manobrista": [ACAO_VER],
+    },
+    # NFSe (emissao de nota fiscal de servico)
+    "nfse": {
+        "operador": [ACAO_VER],
+        "supervisor": [ACAO_VER, ACAO_CRIAR, ACAO_CANCELAR],
+        "manobrista": [ACAO_VER],
+    },
+    # Lista negra (bloqueio de veiculos)
+    "lista_negra": {
+        "operador": [ACAO_VER],
+        "supervisor": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR, ACAO_EXCLUIR],
+        "manobrista": [ACAO_VER],
+    },
+    # Reservas de vaga
+    "reservas": {
+        "operador": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR],
+        "supervisor": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR, ACAO_EXCLUIR],
+        "manobrista": [ACAO_VER],
+    },
+    # Ocorrencias / termo de avarias
+    "ocorrencias": {
+        "operador": [ACAO_VER, ACAO_CRIAR],
+        "supervisor": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR],
+        "manobrista": [ACAO_VER],
+    },
+    # Notificacoes de vencimento
+    "notificacoes": {
+        "operador": [ACAO_VER],
+        "supervisor": [ACAO_VER],
+        "manobrista": [ACAO_VER],
+    },
 }
 
 
@@ -154,7 +215,37 @@ class PermissaoService:
             resposta = supabase.table("permissoes").select("*").order("id").execute()
         except Exception:
             return []
-        return [Permissao.from_dict(dict(item)) for item in resposta.data]
+        permissoes = [Permissao.from_dict(dict(item)) for item in resposta.data]
+
+        # Migracao: modulos adicionados depois que os perfis foram salvos
+        # (ex.: 'operacao', 'clientes', 'financeiro') nao possuem linhas no
+        # banco. Semeia os valores padrao uma unica vez para que os perfis
+        # personalizados nao percam acesso aos menus novos.
+        modulos_sem_linha = [
+            m for m in MODULOS
+            if not any(p.modulo == m for p in permissoes)
+        ]
+        if modulos_sem_linha:
+            proximo_id = 1
+            if permissoes:
+                proximo_id = max(p.id for p in permissoes) + 1
+            for perfil in self.perfis_editaveis():
+                for modulo in modulos_sem_linha:
+                    for acao in _acoes_padrao(perfil, modulo):
+                        permissoes.append(Permissao(
+                            id=proximo_id,
+                            perfil=perfil,
+                            modulo=modulo,
+                            acao=acao,
+                        ))
+                        proximo_id += 1
+            self._permissoes = permissoes
+            try:
+                self._salvar()
+            except Exception:
+                pass
+
+        return permissoes
 
     def _salvar(self) -> None:
         """

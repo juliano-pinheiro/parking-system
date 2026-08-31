@@ -15,7 +15,7 @@
 
 <!-- ==================== SIDEBAR ==================== -->
 <aside class="app-sidebar" id="app-sidebar">
-  <div class="sidebar-brand">
+  <button type="button" class="sidebar-brand" id="sidebar-brand-home" title="Ir para a Visão Geral">
     <span class="brand-icon">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -27,7 +27,7 @@
     <div class="brand-text">
       <strong id="nome-sistema">Estaciona Parking</strong>
     </div>
-  </div>
+  </button>
 
   <div class="sidebar-search">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -51,66 +51,76 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
       Clientes
     </a>
-    <div class="menu-group">
-      <button type="button" class="menu-group-toggle" id="menu-group-financeiro">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Financeiro</span>
-        <svg class="menu-group-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="menu-group-items" id="menu-group-financeiro-items">
-        <div class="menu-subgroup-label">Operacional</div>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-financeiro">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Lançamentos
-        </a>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-caixa">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          Caixa
-        </a>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-pagamentos">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M2 10h20M6 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          Pagamentos
-        </a>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-formas-pagamento">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M2 10h20" stroke="currentColor" stroke-width="1.8"/></svg>
-          Formas de Pagamento
-        </a>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-cortesias">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Cortesias
-        </a>
-        <div class="menu-subgroup-label">Cadastros</div>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-mensalistas">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
-          Mensalistas
-        </a>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-convenios">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Convênios
-        </a>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-contas-receber">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Contas a Receber
-        </a>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-descontos">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 12l-8 8-8-8 8-8 8 8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
-          Descontos
-        </a>
-        <div class="menu-subgroup-label">Análise</div>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-dashboard-financeiro">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Dashboard Financeiro
-        </a>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-relatorios">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Relatórios
-        </a>
-        <a href="#" class="menu-item menu-item-sub" data-view="view-auditoria">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Auditoria
-        </a>
-      </div>
-    </div>
+    <div class="menu-subgroup-label" id="menu-label-financeiro">Financeiro</div>
+    <a href="#" class="menu-item" data-view="view-financeiro">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Lançamentos
+    </a>
+    <a href="#" class="menu-item" data-view="view-caixa">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Caixa
+    </a>
+    <a href="#" class="menu-item" data-view="view-pagamentos">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M2 10h20M6 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Pagamentos
+    </a>
+    <a href="#" class="menu-item" data-view="view-formas-pagamento">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M2 10h20" stroke="currentColor" stroke-width="1.8"/></svg>
+      Formas de Pgto.
+    </a>
+    <a href="#" class="menu-item" data-view="view-mensalistas">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+      Mensalistas
+    </a>
+    <a href="#" class="menu-item" data-view="view-convenios">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Convênios
+    </a>
+    <a href="#" class="menu-item" data-view="view-contas-receber">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Contas a Receber
+    </a>
+    <a href="#" class="menu-item" data-view="view-descontos">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 12l-8 8-8-8 8-8 8 8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+      Descontos
+    </a>
+    <a href="#" class="menu-item" data-view="view-cortesias">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Cortesias
+    </a>
+    <a href="#" class="menu-item" data-view="view-dashboard-financeiro">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Dashboard
+    </a>
+    <a href="#" class="menu-item" data-view="view-relatorios">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Relatórios
+    </a>
+    <a href="#" class="menu-item" data-view="view-auditoria">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Auditoria
+    </a>
+    <div class="menu-subgroup-label" id="menu-label-controle">Controle</div>
+    <a href="#" class="menu-item" data-view="view-nfse">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 2v6h6M9 13h6M9 17h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      NFSe
+    </a>
+    <a href="#" class="menu-item" data-view="view-lista-negra">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Lista Negra
+    </a>
+    <a href="#" class="menu-item" data-view="view-reservas">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Reservas
+    </a>
+    <a href="#" class="menu-item" data-view="view-ocorrencias">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Ocorrências
+    </a>
+    <a href="#" class="menu-item" data-view="view-notificacoes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Avisos
+    </a>
     <a href="#" class="menu-item" data-view="view-configuracoes">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 18.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Configurações
@@ -283,6 +293,17 @@
             <input type="text" id="input-busca" placeholder="Buscar por placa ou ticket...">
           </div>
 
+          <div class="op-toolbar">
+            <button type="button" class="btn-cancelar op-btn-perdido" id="btn-abrir-ticket-perdido">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Ticket perdido
+            </button>
+            <button type="button" class="btn-cancelar op-btn-map" id="btn-abrir-mapa-vagas">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>
+              Mapa de vagas
+            </button>
+          </div>
+
           <div class="vehicle-list" id="vehicle-list">
             <!-- Preenchido via JS -->
           </div>
@@ -397,7 +418,7 @@
           <label for="input-empresa-endereco">Endereço</label>
           <input type="text" id="input-empresa-endereco" placeholder="Rua, número, bairro">
 
-          <div class="config-grid" style="grid-template-columns: 1fr 1fr;">
+          <div class="config-grid">
             <div>
               <label for="input-empresa-cidade">Cidade</label>
               <input type="text" id="input-empresa-cidade" placeholder="Cidade">
@@ -852,16 +873,59 @@
             <p class="empty-state" id="rel-movimentacoes-empty" hidden>Nenhuma movimentação no período.</p>
           </div>
         </div>
+
+        <!-- Ocupacao + DRE -->
+        <div class="rel-extra-grid">
+          <div class="panel rel-ocupacao">
+            <h3 class="config-section-title">Ocupação atual</h3>
+            <div class="ocupacao-cards" id="rel-ocupacao-cards">
+              <div class="ocupacao-card">
+                <span class="ocupacao-valor" id="rel-ocu-total">0</span>
+                <span class="ocupacao-label">Total de vagas</span>
+              </div>
+              <div class="ocupacao-card">
+                <span class="ocupacao-valor" id="rel-ocu-ocupadas">0</span>
+                <span class="ocupacao-label">Ocupadas</span>
+              </div>
+              <div class="ocupacao-card">
+                <span class="ocupacao-valor" id="rel-ocu-disponiveis">0</span>
+                <span class="ocupacao-label">Disponíveis</span>
+              </div>
+              <div class="ocupacao-card">
+                <span class="ocupacao-valor" id="rel-ocu-taxa">0%</span>
+                <span class="ocupacao-label">Taxa de ocupação</span>
+              </div>
+            </div>
+            <div class="ocupacao-por-tipo" id="rel-ocu-por-tipo"></div>
+          </div>
+
+          <div class="panel rel-dre">
+            <h3 class="config-section-title">DRE (últimos 30 dias)</h3>
+            <div class="dre-lista" id="rel-dre-lista">
+              <div class="dre-item"><span>Receita bruta</span><strong id="dre-receita">R$ 0,00</strong></div>
+              <div class="dre-item"><span>Descontos</span><strong id="dre-descontos">R$ 0,00</strong></div>
+              <div class="dre-item"><span>Cortesias</span><strong id="dre-cortesias">0</strong></div>
+              <div class="dre-item"><span>Estornos</span><strong id="dre-estornos">R$ 0,00</strong></div>
+              <div class="dre-item dre-item-total"><span>Resultado líquido</span><strong id="dre-resultado">R$ 0,00</strong></div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- ==================== CONFIGURACOES ==================== -->
     <section class="view" id="view-configuracoes">
       <div class="panel">
-        <h2 class="panel-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 18.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Configurações
-        </h2>
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 18.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Configurações
+          </h2>
+          <button type="button" class="btn-emitir btn-exportar" id="btn-backup">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Backup (JSON)
+          </button>
+        </div>
 
         <div class="tabs" id="tabs-config">
           <button type="button" class="tab active" data-config-tab="geral">Geral</button>
@@ -869,6 +933,7 @@
           <button type="button" class="tab" data-config-tab="tabela">Tabela de Preços</button>
           <button type="button" class="tab" data-config-tab="ticket">Cupom / Ticket</button>
           <button type="button" class="tab" data-config-tab="formas">Formas de Pagamento</button>
+          <button type="button" class="tab" data-config-tab="tipos-veiculo">Tipos de Veículo</button>
           <button type="button" class="tab" data-config-tab="permissoes">Funções e Permissões</button>
         </div>
 
@@ -1063,6 +1128,18 @@
                 <div class="config-field">
                   <label for="input-config-tp-feriados">Feriados</label>
                   <input type="number" id="input-config-tp-feriados" min="0" step="0.01" placeholder="0,00">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-ticket-perdido">Ticket perdido</label>
+                  <input type="number" id="input-config-tp-ticket-perdido" min="0" step="0.01" placeholder="0,00">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-pernoite">Pernoite (valor fixo)</label>
+                  <input type="number" id="input-config-tp-pernoite" min="0" step="0.01" placeholder="0,00">
+                </div>
+                <div class="config-field">
+                  <label for="input-config-tp-pernoite-horas">Pernoite a partir de (horas)</label>
+                  <input type="number" id="input-config-tp-pernoite-horas" min="1" step="1" placeholder="12">
                 </div>
               </div>
             </div>
@@ -1260,6 +1337,68 @@
             </div>
           </div>
 
+          <!-- ============ ABA: TIPOS DE VEICULO ============ -->
+          <div class="config-tab-pane" data-config-pane="tipos-veiculo" hidden>
+            <div class="config-section">
+              <h3 class="config-section-title">Novo tipo de veículo</h3>
+              <p class="config-hint">
+                Cadastre tipos personalizados (ex.: "SUV", "Van", "Ônibus") com preços próprios.
+                Os tipos <strong>Carro</strong>, <strong>Moto</strong>, <strong>Carro Grande</strong> e <strong>Caminhonete</strong>
+                são do sistema e alimentam vagas e cobrança — não podem ser inativados ou excluídos.
+                Campos de preço em branco ou zero herdam os preços de carro.
+              </p>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label for="input-novo-tipo-veiculo">Nome do tipo</label>
+                  <input type="text" id="input-novo-tipo-veiculo" maxlength="40" placeholder="Ex.: SUV, Van, Ônibus...">
+                </div>
+                <div class="config-field">
+                  <label for="input-tipo-veiculo-primeira">Primeira hora</label>
+                  <input type="number" id="input-tipo-veiculo-primeira" min="0" step="0.01" placeholder="Herda carro">
+                </div>
+                <div class="config-field">
+                  <label for="input-tipo-veiculo-adicional">Hora adicional</label>
+                  <input type="number" id="input-tipo-veiculo-adicional" min="0" step="0.01" placeholder="Herda carro">
+                </div>
+                <div class="config-field">
+                  <label for="input-tipo-veiculo-diaria">Diária</label>
+                  <input type="number" id="input-tipo-veiculo-diaria" min="0" step="0.01" placeholder="Herda carro">
+                </div>
+                <div class="config-field">
+                  <label for="input-tipo-veiculo-mensal">Mensal</label>
+                  <input type="number" id="input-tipo-veiculo-mensal" min="0" step="0.01" placeholder="Herda carro">
+                </div>
+              </div>
+              <button type="button" class="btn-novo" id="btn-adicionar-tipo-veiculo">
+                <span class="btn-plus">+</span> Adicionar tipo
+              </button>
+            </div>
+
+            <div class="config-section">
+              <h3 class="config-section-title">Tipos cadastrados</h3>
+              <p class="config-hint">Tipos do sistema têm apenas os preços editáveis. Tipos personalizados podem ser editados, inativados e excluídos.</p>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Primeira hora</th>
+                      <th>Hora adicional</th>
+                      <th>Diária</th>
+                      <th>Mensal</th>
+                      <th>Origem</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabela-tipos-veiculo">
+                    <tr><td colspan="7" class="table-empty">Carregando tipos...</td></tr>
+                  </tbody>
+                </table>
+                <p class="empty-state" id="tipos-veiculo-empty" hidden>Nenhum tipo de veículo cadastrado.</p>
+              </div>
+            </div>
+          </div>
+
           <!-- ============ ABA: FUNCOES E PERMISSOES ============ -->
           <div class="config-tab-pane" data-config-pane="permissoes" hidden>
             <div class="config-section">
@@ -1305,7 +1444,7 @@
             </div>
           </div>
 
-          <button type="submit" class="btn-emitir btn-salvar-config">Salvar configurações</button>
+          <button type="submit" id="btn-salvar-configuracoes" class="btn-emitir btn-salvar-config">Salvar configurações</button>
         </form>
       </div>
     </section>
@@ -1327,14 +1466,13 @@
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>Código</th>
                 <th>Status</th>
                 <th class="col-acoes">Ações</th>
               </tr>
             </thead>
             <tbody id="tabela-formas-pagamento">
               <tr>
-                <td colspan="4" class="table-empty">Carregando formas de pagamento...</td>
+                <td colspan="3" class="table-empty">Carregando formas de pagamento...</td>
               </tr>
             </tbody>
           </table>
@@ -1683,26 +1821,298 @@
             Auditoria
           </h2>
         </div>
+
+        <!-- Resumo -->
+        <div class="summary-grid rel-summary">
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Alterações registradas</span>
+              <span class="summary-value" id="aud-total-alteracoes">0</span>
+            </div>
+            <div class="summary-icon icon-blue">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 4H4v16h16v-7M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Acessos registrados</span>
+              <span class="summary-value" id="aud-total-acessos">0</span>
+            </div>
+            <div class="summary-icon icon-green">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+            </div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Último acesso</span>
+              <span class="summary-value" id="aud-ultimo-acesso">—</span>
+            </div>
+            <div class="summary-icon icon-yellow">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Abas -->
+        <div class="tabs" id="tabs-auditoria">
+          <button type="button" class="tab active" data-auditoria-tab="alteracoes">Alterações</button>
+          <button type="button" class="tab" data-auditoria-tab="acessos">Acessos</button>
+        </div>
+
+        <!-- Filtros -->
+        <div class="periodo-filtro auditoria-filtros">
+          <input type="search" id="filtro-auditoria-busca" placeholder="Buscar por usuário, tabela, campo ou valor...">
+          <select id="filtro-auditoria-periodo">
+            <option value="tudo">Todo o período</option>
+            <option value="hoje">Hoje</option>
+            <option value="7">Últimos 7 dias</option>
+            <option value="30">Últimos 30 dias</option>
+          </select>
+          <select id="filtro-auditoria-usuario">
+            <option value="">Todos os usuários</option>
+          </select>
+          <select id="filtro-auditoria-tabela">
+            <option value="">Todas as tabelas</option>
+          </select>
+          <select id="filtro-auditoria-acao" hidden>
+            <option value="">Todas as ações</option>
+            <option value="login">Login</option>
+            <option value="logout">Logout</option>
+          </select>
+          <button type="button" class="btn-emitir btn-exportar" id="btn-exportar-auditoria">Exportar CSV</button>
+        </div>
+
+        <!-- Tabela: Alteracoes -->
+        <div class="config-tab-pane" data-auditoria-pane="alteracoes">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Data / Hora</th>
+                  <th>Tabela</th>
+                  <th>Registro</th>
+                  <th>Campo</th>
+                  <th>Alteração</th>
+                  <th>Usuário</th>
+                  <th>IP</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-auditoria">
+                <tr><td colspan="7" class="table-empty">Carregando auditoria...</td></tr>
+              </tbody>
+            </table>
+            <p class="empty-state" id="auditoria-empty" hidden>Nenhum registro de auditoria.</p>
+          </div>
+        </div>
+
+        <!-- Tabela: Acessos -->
+        <div class="config-tab-pane" data-auditoria-pane="acessos" hidden>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Data / Hora</th>
+                  <th>Usuário</th>
+                  <th>Ação</th>
+                  <th>Módulo</th>
+                  <th>IP</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-auditoria-acessos">
+                <tr><td colspan="5" class="table-empty">Carregando acessos...</td></tr>
+              </tbody>
+            </table>
+            <p class="empty-state" id="auditoria-acessos-empty" hidden>Nenhum log de acesso.</p>
+          </div>
+        </div>
+
+        <!-- Paginacao -->
+        <div class="auditoria-paginacao">
+          <button type="button" class="btn-cancelar" id="aud-pag-anterior" disabled>← Anterior</button>
+          <span id="aud-pag-info">Página 1 de 1</span>
+          <button type="button" class="btn-cancelar" id="aud-pag-proxima" disabled>Próxima →</button>
+          <span class="aud-contagem" id="aud-contagem"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== NFSE ==================== -->
+    <section class="view" id="view-nfse">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 2v6h6M9 13h6M9 17h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Notas Fiscais de Serviço (NFSe)
+          </h2>
+          <button type="button" class="btn-emitir" id="btn-nova-nfse">+ Emitir NFSe</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Número</th>
+                <th>Data</th>
+                <th>Ticket</th>
+                <th>Placa</th>
+                <th>Tomador</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-nfse">
+              <tr><td colspan="8" class="table-empty">Carregando notas...</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="nfse-empty" hidden>Nenhuma nota emitida.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== LISTA NEGRA ==================== -->
+    <section class="view" id="view-lista-negra">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Lista Negra
+          </h2>
+          <button type="button" class="btn-emitir" id="btn-novo-bloqueio">+ Bloquear veículo</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Placa</th>
+                <th>Motivo</th>
+                <th>Status</th>
+                <th>Registrado por</th>
+                <th>Data</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-lista-negra">
+              <tr><td colspan="6" class="table-empty">Carregando lista negra...</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="lista-negra-empty" hidden>Nenhum veículo bloqueado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== RESERVAS ==================== -->
+    <section class="view" id="view-reservas">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Reservas de Vaga
+          </h2>
+          <button type="button" class="btn-emitir" id="btn-nova-reserva">+ Nova reserva</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Telefone</th>
+                <th>Placa</th>
+                <th>Vaga</th>
+                <th>Início</th>
+                <th>Fim</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-reservas">
+              <tr><td colspan="9" class="table-empty">Carregando reservas...</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="reservas-empty" hidden>Nenhuma reserva.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== OCORRENCIAS ==================== -->
+    <section class="view" id="view-ocorrencias">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Ocorrências / Termo de Avarias
+          </h2>
+          <button type="button" class="btn-emitir" id="btn-nova-ocorrencia">+ Nova ocorrência</button>
+        </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
                 <th>Data</th>
-                <th>Tabela</th>
-                <th>Registro</th>
-                <th>Campo</th>
-                <th>Valor antigo</th>
-                <th>Valor novo</th>
-                <th>Usuário</th>
+                <th>Tipo</th>
+                <th>Placa</th>
+                <th>Ticket</th>
+                <th>Descrição</th>
+                <th>Status</th>
+                <th>Registrado por</th>
+                <th>Ações</th>
               </tr>
             </thead>
-            <tbody id="tabela-auditoria">
-              <tr>
-                <td colspan="7" class="table-empty">Carregando auditoria...</td>
-              </tr>
+            <tbody id="tabela-ocorrencias">
+              <tr><td colspan="8" class="table-empty">Carregando ocorrências...</td></tr>
             </tbody>
           </table>
-          <p class="empty-state" id="auditoria-empty" hidden>Nenhum registro de auditoria.</p>
+          <p class="empty-state" id="ocorrencias-empty" hidden>Nenhuma ocorrência registrada.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== AVISOS / NOTIFICACOES ==================== -->
+    <section class="view" id="view-notificacoes">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Avisos de Vencimento
+          </h2>
+        </div>
+        <div class="summary-grid rel-summary">
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">Inadimplentes</span>
+              <span class="summary-value" id="aviso-inadimplentes">0</span>
+            </div>
+            <div class="summary-icon icon-danger">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-info">
+              <span class="summary-label">A vencer (5 dias)</span>
+              <span class="summary-value" id="aviso-a-vencer">0</span>
+            </div>
+            <div class="summary-icon icon-yellow">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 8v4l3 3M12 2v20M17 6.5c0-1.93-2.24-3.5-5-3.5s-5 1.57-5 3.5 2.24 3 5 3.5 5 1.57 5 3.5-2.24 3.5-5 3.5-5-1.57-5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+        </div>
+        <p class="config-hint" id="aviso-mensagem-geral"></p>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Mensalista</th>
+                <th>Competência</th>
+                <th>Valor</th>
+                <th>Situação</th>
+                <th>Contato</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-avisos">
+              <tr><td colspan="5" class="table-empty">Carregando avisos...</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-state" id="avisos-empty" hidden>Nenhum aviso de vencimento.</p>
         </div>
       </div>
     </section>
@@ -1710,8 +2120,61 @@
   </main>
 </div>
 
+<!-- ==================== MODAL TIPO DE VEICULO (EDITAR) ==================== -->
+<div class="modal-overlay" id="modal-tipo-veiculo" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-tipo-veiculo-titulo">Editar tipo de veículo</h3>
+      <button type="button" class="modal-close" id="modal-tipo-veiculo-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <form id="form-tipo-veiculo" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-tipo-veiculo-edit-id">
+
+      <p class="modal-descricao" id="modal-tipo-veiculo-descricao">Atualize o nome e os valores cobrados para este tipo de veículo.</p>
+
+      <div class="modal-aviso" id="modal-tipo-veiculo-aviso" hidden>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Tipo do sistema: o nome é fixo (alimenta vagas e cobrança). Apenas os preços podem ser editados.</span>
+      </div>
+
+      <label for="input-tipo-veiculo-edit-nome">Nome do tipo</label>
+      <input type="text" id="input-tipo-veiculo-edit-nome" maxlength="40" placeholder="Ex.: SUV" required>
+
+      <div class="modal-secao-titulo">Preços (R$)</div>
+      <p class="modal-descricao">Deixe em branco para herdar os valores do tipo Carro.</p>
+
+      <div class="modal-grid">
+        <div>
+          <label for="input-tipo-veiculo-edit-primeira">Primeira hora</label>
+          <input type="number" id="input-tipo-veiculo-edit-primeira" min="0" step="0.01" placeholder="Ex.: 10,00">
+        </div>
+        <div>
+          <label for="input-tipo-veiculo-edit-adicional">Hora adicional</label>
+          <input type="number" id="input-tipo-veiculo-edit-adicional" min="0" step="0.01" placeholder="Ex.: 5,00">
+        </div>
+        <div>
+          <label for="input-tipo-veiculo-edit-diaria">Diária</label>
+          <input type="number" id="input-tipo-veiculo-edit-diaria" min="0" step="0.01" placeholder="Ex.: 40,00">
+        </div>
+        <div>
+          <label for="input-tipo-veiculo-edit-mensal">Mensal</label>
+          <input type="number" id="input-tipo-veiculo-edit-mensal" min="0" step="0.01" placeholder="Ex.: 250,00">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-tipo-veiculo-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar" id="btn-tipo-veiculo-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ==================== MODAL FORMA DE PAGAMENTO (SAIDA) ==================== -->
-<div class="modal-overlay" id="modal-forma-pagamento" hidden>
+<div class="modal-overlay" id="modal-forma-saida" hidden>
   <div class="modal">
     <div class="modal-header">
       <h3 class="modal-title">Forma de pagamento</h3>
@@ -1946,8 +2409,6 @@
       <input type="hidden" id="input-forma-pagamento-id">
       <label for="input-forma-pagamento-nome">Nome</label>
       <input type="text" id="input-forma-pagamento-nome" placeholder="Ex.: Dinheiro, PIX, Cartão..." required>
-      <label for="input-forma-pagamento-codigo">Código</label>
-      <input type="text" id="input-forma-pagamento-codigo" placeholder="Ex.: dinheiro, pix, cartao_credito" required>
       <label class="checkbox-label">
         <input type="checkbox" id="input-forma-pagamento-ativo" checked>
         <span>Forma de pagamento ativa</span>
@@ -2005,6 +2466,272 @@
         <button type="submit" class="btn-emitir btn-salvar">Confirmar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL NFSE ==================== -->
+<div class="modal-overlay" id="modal-nfse" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Emitir NFSe</h3>
+      <button type="button" class="modal-close" id="modal-nfse-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-nfse" class="modal-form" autocomplete="off">
+      <label for="input-nfse-ticket">Nº do ticket (opcional)</label>
+      <input type="number" id="input-nfse-ticket" min="1" placeholder="Ex.: 101">
+
+      <label for="input-nfse-placa">Placa (opcional)</label>
+      <input type="text" id="input-nfse-placa" maxlength="10" placeholder="Ex.: ABC1D23">
+
+      <div class="modal-grid">
+        <div>
+          <label for="input-nfse-valor">Valor (R$)</label>
+          <input type="number" id="input-nfse-valor" min="0" step="0.01" placeholder="Ex.: 12,00" required>
+        </div>
+        <div>
+          <label for="input-nfse-cpf-cnpj">CPF/CNPJ</label>
+          <input type="text" id="input-nfse-cpf-cnpj" maxlength="18" placeholder="Ex.: 123.456.789-00">
+        </div>
+      </div>
+
+      <label for="input-nfse-razao">Razão social / Nome</label>
+      <input type="text" id="input-nfse-razao" maxlength="120" placeholder="Ex.: João da Silva">
+
+      <label for="input-nfse-servico">Serviço</label>
+      <input type="text" id="input-nfse-servico" maxlength="120" value="Estacionamento de veiculos">
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-nfse-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Emitir nota</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL LISTA NEGRA ==================== -->
+<div class="modal-overlay" id="modal-lista-negra" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Bloquear veículo</h3>
+      <button type="button" class="modal-close" id="modal-lista-negra-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-lista-negra" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-lista-negra-id">
+      <label for="input-lista-negra-placa">Placa</label>
+      <input type="text" id="input-lista-negra-placa" maxlength="10" placeholder="Ex.: ABC1D23" required>
+
+      <label for="input-lista-negra-motivo">Motivo</label>
+      <textarea id="input-lista-negra-motivo" rows="2" maxlength="255" placeholder="Ex.: inadimplência, pendência, etc." required></textarea>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-lista-negra-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL RESERVA ==================== -->
+<div class="modal-overlay" id="modal-reserva" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-reserva-titulo">Nova reserva</h3>
+      <button type="button" class="modal-close" id="modal-reserva-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-reserva" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-reserva-id">
+      <label for="input-reserva-cliente">Cliente</label>
+      <input type="text" id="input-reserva-cliente" maxlength="120" placeholder="Ex.: Maria Oliveira" required>
+
+      <div class="modal-grid">
+        <div>
+          <label for="input-reserva-telefone">Telefone</label>
+          <input type="text" id="input-reserva-telefone" maxlength="20" placeholder="Ex.: (11) 99999-0000">
+        </div>
+        <div>
+          <label for="input-reserva-placa">Placa</label>
+          <input type="text" id="input-reserva-placa" maxlength="10" placeholder="Ex.: ABC1D23">
+        </div>
+      </div>
+
+      <div class="modal-grid">
+        <div>
+          <label for="input-reserva-inicio">Início</label>
+          <input type="datetime-local" id="input-reserva-inicio" required>
+        </div>
+        <div>
+          <label for="input-reserva-fim">Fim</label>
+          <input type="datetime-local" id="input-reserva-fim" required>
+        </div>
+      </div>
+
+      <div class="modal-grid">
+        <div>
+          <label for="input-reserva-vaga">Vaga (opcional)</label>
+          <input type="number" id="input-reserva-vaga" min="1" placeholder="Ex.: 12">
+        </div>
+        <div>
+          <label for="input-reserva-tipo">Tipo de veículo</label>
+          <select id="input-reserva-tipo">
+            <option value="Carro">Carro</option>
+            <option value="Moto">Moto</option>
+            <option value="Carro Grande">Carro Grande</option>
+            <option value="Caminhonete">Caminhonete</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="input-reserva-valor">Valor (R$)</label>
+      <input type="number" id="input-reserva-valor" min="0" step="0.01" placeholder="Ex.: 20,00">
+
+      <label for="input-reserva-obs">Observação</label>
+      <textarea id="input-reserva-obs" rows="2" maxlength="255"></textarea>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-reserva-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL OCORRENCIA ==================== -->
+<div class="modal-overlay" id="modal-ocorrencia" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Nova ocorrência</h3>
+      <button type="button" class="modal-close" id="modal-ocorrencia-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-ocorrencia" class="modal-form" autocomplete="off">
+      <input type="hidden" id="input-ocorrencia-id">
+      <label for="input-ocorrencia-tipo">Tipo</label>
+      <select id="input-ocorrencia-tipo">
+        <option value="avaria">Avaria</option>
+        <option value="perda">Perda</option>
+        <option value="outro">Outro</option>
+      </select>
+
+      <div class="modal-grid">
+        <div>
+          <label for="input-ocorrencia-placa">Placa</label>
+          <input type="text" id="input-ocorrencia-placa" maxlength="10" placeholder="Ex.: ABC1D23">
+        </div>
+        <div>
+          <label for="input-ocorrencia-ticket">Nº do ticket</label>
+          <input type="number" id="input-ocorrencia-ticket" min="1" placeholder="Ex.: 101">
+        </div>
+      </div>
+
+      <label for="input-ocorrencia-descricao">Descrição</label>
+      <textarea id="input-ocorrencia-descricao" rows="3" maxlength="500" placeholder="Descreva a avaria/ocorrência..." required></textarea>
+
+      <label for="input-ocorrencia-autorizador">Autorizador (opcional)</label>
+      <input type="text" id="input-ocorrencia-autorizador" maxlength="120" placeholder="Quem autorizou/registrou">
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-ocorrencia-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL TICKET PERDIDO ==================== -->
+<div class="modal-overlay" id="modal-ticket-perdido" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Ticket perdido</h3>
+      <button type="button" class="modal-close" id="modal-ticket-perdido-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <form id="form-ticket-perdido" class="modal-form" autocomplete="off">
+      <p class="modal-descricao">Cobra a tarifa de ticket perdido configurada na tabela de preços e registra o pagamento.</p>
+      <div class="modal-aviso">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Operação requer autorização de admin/supervisor.</span>
+      </div>
+
+      <div class="modal-grid">
+        <div>
+          <label for="input-tp-placa">Placa</label>
+          <input type="text" id="input-tp-placa" maxlength="10" placeholder="Ex.: ABC1D23">
+        </div>
+        <div>
+          <label for="input-tp-tipo">Tipo de veículo</label>
+          <select id="input-tp-tipo">
+            <option value="Carro">Carro</option>
+            <option value="Moto">Moto</option>
+            <option value="Carro Grande">Carro Grande</option>
+            <option value="Caminhonete">Caminhonete</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="input-tp-valor">Valor cobrado (R$) <span class="config-hint-inline" id="tp-valor-sugerido"></span></label>
+      <input type="number" id="input-tp-valor" min="0" step="0.01" placeholder="Deixe em branco para usar a tarifa padrão">
+
+      <label for="input-tp-forma">Forma de pagamento</label>
+      <select id="input-tp-forma">
+        <option value="dinheiro">Dinheiro</option>
+        <option value="pix">PIX</option>
+        <option value="cartao_credito">Cartão de crédito</option>
+        <option value="cartao_debito">Cartão de débito</option>
+      </select>
+
+      <label for="input-tp-obs">Observações</label>
+      <textarea id="input-tp-obs" rows="2" maxlength="255" placeholder="Descreva a situação do ticket perdido" required></textarea>
+
+      <label for="input-tp-autorizador">Autorizador</label>
+      <input type="text" id="input-tp-autorizador" maxlength="120" placeholder="Nome de quem autorizou (obrigatório p/ não-admin)">
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancelar" id="btn-ticket-perdido-cancelar">Cancelar</button>
+        <button type="submit" class="btn-emitir btn-salvar">Registrar e cobrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL MAPA DE VAGAS ==================== -->
+<div class="modal-overlay" id="modal-mapa-vagas" hidden>
+  <div class="modal modal-largo">
+    <div class="modal-header">
+      <h3 class="modal-title">Mapa de Vagas</h3>
+      <button type="button" class="modal-close" id="modal-mapa-vagas-fechar" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="mapa-vagas-resumo">
+        <div class="mapa-resumo-item"><span class="mapa-resumo-valor" id="mapa-total-vagas">0</span><span class="mapa-resumo-label">Total de vagas</span></div>
+        <div class="mapa-resumo-item"><span class="mapa-resumo-valor" id="mapa-ocupadas">0</span><span class="mapa-resumo-label">Ocupadas</span></div>
+        <div class="mapa-resumo-item"><span class="mapa-resumo-valor" id="mapa-disponiveis">0</span><span class="mapa-resumo-label">Disponíveis</span></div>
+        <div class="mapa-resumo-item"><span class="mapa-resumo-valor" id="mapa-taxa">0%</span><span class="mapa-resumo-label">Taxa de ocupação</span></div>
+      </div>
+      <div class="mapa-vagas-legend">
+        <span class="mapa-legend-item"><span class="mapa-legend-dot livre"></span>Livre</span>
+        <span class="mapa-legend-item"><span class="mapa-legend-dot t-carro"></span>Carro</span>
+        <span class="mapa-legend-item"><span class="mapa-legend-dot t-moto"></span>Moto</span>
+        <span class="mapa-legend-item"><span class="mapa-legend-dot t-cg"></span>Carro Grande</span>
+        <span class="mapa-legend-item"><span class="mapa-legend-dot t-cam"></span>Caminhonete</span>
+      </div>
+      <div class="mapa-vagas-grid" id="mapa-vagas-grid">
+        <p class="empty-state">Carregando vagas...</p>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancelar" id="btn-mapa-atualizar">Atualizar</button>
+      <button type="button" class="btn-emitir" id="btn-mapa-vagas-fechar">Fechar</button>
+    </div>
   </div>
 </div>
 

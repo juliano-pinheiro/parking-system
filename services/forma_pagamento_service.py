@@ -26,10 +26,12 @@ class FormaPagamentoService(BaseSupabaseService):
     """Regras de negocio e persistencia das formas de pagamento."""
 
     TABELA = "formas_pagamento"
+    SCOPED_EMPRESA = True
     MODELO = FormaPagamento
     CAMPOS_DATA = ("criado_em",)
 
-    def __init__(self):
+    def __init__(self, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
         self._registros: List[FormaPagamento] = self._carregar()
         self._garantir_padrao()
 
@@ -44,6 +46,7 @@ class FormaPagamentoService(BaseSupabaseService):
                     nome=nome,
                     codigo=codigo,
                     ativo=True,
+                    empresa_id=getattr(self, "_empresa_id", None),
                 ))
                 alterado = True
         if alterado:
@@ -67,6 +70,7 @@ class FormaPagamentoService(BaseSupabaseService):
             nome=nome,
             codigo=codigo,
             ativo=ativo,
+            empresa_id=getattr(self, "_empresa_id", None),
         )
         self._registros.append(forma)
         self._persistir()

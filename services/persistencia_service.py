@@ -89,7 +89,24 @@ class PersistenciaService:
                 "empresa_id": empresa_id if empresa_id is not None else ticket.empresa_id,
             })
 
-        supabase.table("tickets").insert(dados).execute()
+        try:
+            supabase.table("tickets").insert(dados).execute()
+        except Exception as erro:
+            texto = str(erro)
+            coluna_ausente = (
+                "PGRST204" in texto
+                or "42703" in texto
+                or "does not exist" in texto
+            )
+            # Coluna forma_pagamento ainda nao existe no banco
+            # (executar sql/correcao_colunas_pendentes.sql no Supabase):
+            # grava sem ela para nao bloquear a entrada/saida do veiculo.
+            if coluna_ausente and any("forma_pagamento" in item for item in dados):
+                for item in dados:
+                    item.pop("forma_pagamento", None)
+                supabase.table("tickets").insert(dados).execute()
+            else:
+                raise
 
     def proximo_numero_global(self) -> int:
         """Proximo numero de ticket unico (evita conflito de PK entre empresas)."""
@@ -161,7 +178,25 @@ class PersistenciaService:
         if empresa_id is not None:
             dados["empresa_id"] = empresa_id
 
-        inserido = supabase.table("configuracao").insert(dados).execute()
+        try:
+            inserido = supabase.table("configuracao").insert(dados).execute()
+        except Exception as erro:
+            texto = str(erro)
+            if "23505" in texto or "duplicate key" in texto:
+                # Sequencia do id desatualizada (registros importados com id
+                # explicito): calcula o proximo id e insere de forma explicita.
+                ultimo = (
+                    supabase
+                    .table("configuracao")
+                    .select("id")
+                    .order("id", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                dados["id"] = (ultimo.data[0]["id"] + 1) if ultimo.data else 1
+                inserido = supabase.table("configuracao").insert(dados).execute()
+            else:
+                raise
         if inserido.data:
             return Configuracao.from_dict(inserido.data[0])
         return Configuracao(nome_estacionamento=nome_estacionamento, cnpj=cnpj, empresa_id=empresa_id)

@@ -25,9 +25,25 @@ AGRUPAMENTOS_VALIDOS = (AGRUPAMENTO_DIA, AGRUPAMENTO_SEMANA, AGRUPAMENTO_MES)
 class RelatorioService:
     """Gera relatorios financeiros com agrupamento e exportacao."""
 
-    def __init__(self, financeiro_service=None, nome_estacionamento="Estacionamento"):
+    def __init__(
+        self,
+        financeiro_service=None,
+        nome_estacionamento="Estacionamento",
+        estacionamento_service=None,
+        desconto_service=None,
+        cortesia_service=None,
+        estorno_service=None,
+        mensalista_service=None,
+        conta_receber_service=None,
+    ):
         self._financeiro = financeiro_service
         self._nome_estacionamento = nome_estacionamento or "Estacionamento"
+        self._estacionamento = estacionamento_service
+        self._descontos = desconto_service
+        self._cortesias = cortesia_service
+        self._estornos = estorno_service
+        self._mensalistas = mensalista_service
+        self._contas_receber = conta_receber_service
 
     def _lancamentos(self) -> List:
         if self._financeiro is None:
@@ -195,7 +211,6 @@ class RelatorioService:
         )
 
         dados = self.gerar(agrupamento)
-
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer, pagesize=A4,
@@ -304,3 +319,111 @@ class RelatorioService:
 
         doc.build(elementos)
         return buffer.getvalue()
+
+    # ------------------------------------------------------------
+    # RELATORIO DE OCUPACAO
+    # ------------------------------------------------------------
+    def relatorio_ocupacao(self) -> dict:
+        """Retorna a ocupacao atual e por tipo de veiculo."""
+        total_vagas = 0
+        vagas_ocupadas = 0
+        tickets_abertos = []
+        tickets_por_tipo = {}
+
+        if self._estacionamento is not None:
+            try:
+                config = self._estacionamento.config
+                total_vagas = getattr(config, "vagas", 0) or 0
+                tickets_abertos = self._estacionamento.listar_tickets_abertos()
+                vagas_ocupadas = len(tickets_abertos)
+            except Exception:
+                pass
+
+        # Vagas por tipo de veiculo (se configurado)
+        vagas_por_tipo = {}
+        if self._estacionamento is not None:
+            try:
+                config = self._estacionamento.config
+                for tipo in ("Carro", "Moto", "Carro Grande", "Caminhonete"):
+                    v = getattr(config, f"vagas_{tipo.lower().replace(' ', '_')}", None)
+                    if v is None:
+                        v = getattr(config, tipo.lower().replace(" ", "_"), None)
+                    if v is not None:
+                        vagas_por_tipo[tipo] = int(v)
+            except Exception:
+                pass
+
+        # Contagem de ocupados por tipo
+        for ticket in tickets_abertos:
+            tipo = getattr(ticket, "tipo_veiculo", None) or "Carro"
+            tickets_por_tipo[tipo] = tickets_por_tipo.get(tipo, 0) + 1
+
+        disponiveis = max(total_vagas - vagas_ocupadas, 0)
+        taxa = round((vagas_ocupadas / total_vagas) * 100, 1) if total_vagas else 0
+
+        return {
+            "total_vagas": total_vagas,
+            "ocupadas": vagas_ocupadas,
+            "disponiveis": disponiveis,
+            "taxa_ocupacao": taxa,
+            "por_tipo": {
+                tipo: {
+                    "ocupadas": tickets_por_tipo.get(tipo, 0),
+                    "vagas": vagas_por_tipo.get(tipo, 0),
+                }
+                for tipo in sorted(set(list(vagas_por_tipo.keys()) + list(tickets_por_tipo.keys())))
+            },
+        }
+
+    # ------------------------------------------------------------
+    # DRE (Demonstracao do Resultado do Exercicio)
+    # ------------------------------------------------------------
+    def relatorio_dre(self) -> dict:
+        """Retorna um DRE simples: receita bruta, descontos, cortesias,
+        estornos e resultado liquido, no periodo do agrupamento 'dia'."""
+        inicio, fim = self._periodo_agrupamento(AGRUPAMENTO_DIA)
+
+        receita_bruta = 0.0
+        for lancamento in self._receitas(inicio, fim):
+            receita_bruta += float(getattr(lancamento, "valor", 0) or 0)
+
+        total_descontos = 0.0
+        if self._descontos is not None:
+            try:
+                for desconto in self._descontos.listar():
+                    if hasattr(desconto, "valor") and desconto.valor:
+                        total_descontos += float(desconto.valor or 0)
+            except Exception:
+                pass
+
+        total_cortesias = 0.0
+        if self._cortesias is not None:
+            try:
+                for cortesia in self._cortesias.listar():
+                    data = self._parse(getattr(cortesia, "data", None))
+                    if data and inicio <= data <= fim:
+                        # Cortesias nao contabilizam como receita; registra contagem
+                        total_cortesias += 1
+            except Exception:
+                pass
+
+        total_estornos = 0.0
+        if self._estornos is not None:
+            try:
+                for estorno in self._estornos.listar():
+                    data = self._parse(getattr(estorno, "data", None))
+                    if data and inicio <= data <= fim:
+                        total_estornos += float(getattr(estorno, "valor", 0) or 0)
+            except Exception:
+                pass
+
+        resultado = round(receita_bruta - total_estornos, 2)
+
+        return {
+            "periodo": {"inicio": inicio.strftime("%d/%m/%Y"), "fim": fim.strftime("%d/%m/%Y")},
+            "receita_bruta": round(receita_bruta, 2),
+            "total_descontos": round(total_descontos, 2),
+            "total_cortesias": int(total_cortesias),
+            "total_estornos": round(total_estornos, 2),
+            "resultado_liquido": resultado,
+        }

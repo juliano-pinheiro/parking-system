@@ -16,10 +16,12 @@ class EstornoService(BaseSupabaseService):
     """Regras de negocio e persistencia dos estornos."""
 
     TABELA = "estornos"
+    SCOPED_EMPRESA = True
     MODELO = Estorno
     CAMPOS_DATA = ("data", "criado_em")
 
-    def __init__(self):
+    def __init__(self, empresa_id: Optional[int] = None):
+        self._empresa_id = empresa_id
         self._registros: List[Estorno] = self._carregar()
 
     def criar(
@@ -45,6 +47,7 @@ class EstornoService(BaseSupabaseService):
             forma_pagamento=forma_pagamento,
             data=datetime.now().strftime(FORMATO_DATA),
             autorizador=autorizador,
+            empresa_id=getattr(self, "_empresa_id", None),
         )
         self._registros.append(estorno)
         self._persistir()

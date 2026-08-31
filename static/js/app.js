@@ -16,6 +16,39 @@ function formatarMoeda(valor) {
   return "R$ " + Number(valor).toFixed(2).replace(".", ",");
 }
 
+// Formata datas para exibicao (dd/mm/aaaa hh:mm), convertendo ISO com fuso
+// para o horario local e removendo segundos. Aceita "AAAA-MM-DD" (so data),
+// ISO 8601, "DD/MM/AAAA HH:MM:SS" e retorna o valor original como fallback.
+function formatarDataHora(valor) {
+  if (valor === null || valor === undefined || valor === "") return "—";
+  const texto = String(valor);
+
+  if (/^\d{2}\/\d{2}\/\d{4}(\s|$)/.test(texto)) return texto.slice(0, 16);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    const [aa, mm, dd] = texto.split("-");
+    return `${dd}/${mm}/${aa}`;
+  }
+
+  const data = new Date(texto);
+  if (!isNaN(data)) {
+    const dd = String(data.getDate()).padStart(2, "0");
+    const mm = String(data.getMonth() + 1).padStart(2, "0");
+    const aa = data.getFullYear();
+    const hh = String(data.getHours()).padStart(2, "0");
+    const mi = String(data.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm}/${aa} ${hh}:${mi}`;
+  }
+  return texto;
+}
+
+// Converte codigos internos (ex.: "cartao_credito", "aberta") em rotulo legivel
+function rotuloStatus(texto) {
+  if (texto === null || texto === undefined || texto === "") return "—";
+  const limpo = String(texto).replace(/_/g, " ");
+  return limpo.charAt(0).toUpperCase() + limpo.slice(1);
+}
+
 function mostrarToast(mensagem, tipo = "success") {
   const container = document.getElementById("toast-container");
   const toast = document.createElement("div");
@@ -118,6 +151,16 @@ function mostrarView(viewId) {
     carregarCortesias();
   } else if (viewId === "view-dashboard-financeiro") {
     carregarDashboardFinanceiro();
+  } else if (viewId === "view-nfse") {
+    carregarNFSE();
+  } else if (viewId === "view-lista-negra") {
+    carregarListaNegra();
+  } else if (viewId === "view-reservas") {
+    carregarReservas();
+  } else if (viewId === "view-ocorrencias") {
+    carregarOcorrencias();
+  } else if (viewId === "view-notificacoes") {
+    carregarAvisos();
   } else if (viewId === "view-auditoria") {
     carregarAuditoria();
   }
@@ -130,6 +173,11 @@ document.querySelectorAll(".menu-item").forEach((item) => {
   });
 });
 
+// Logo/nome do sistema no topo do sidebar volta para a Visao Geral
+document.getElementById("sidebar-brand-home").addEventListener("click", () => {
+  mostrarView("view-visao-geral");
+});
+
 // Toggle dos grupos de menu (submenus expansiveis)
 document.querySelectorAll(".menu-group-toggle").forEach((toggle) => {
   toggle.addEventListener("click", () => {
@@ -138,14 +186,28 @@ document.querySelectorAll(".menu-group-toggle").forEach((toggle) => {
   });
 });
 
-// Pesquisa do menu: filtra itens
+// Pesquisa do menu: filtra itens (respeitando permissoes do perfil)
 const inputPesquisaMenu = document.getElementById("sidebar-input-pesquisa");
 if (inputPesquisaMenu) {
   inputPesquisaMenu.addEventListener("input", () => {
     const termo = inputPesquisaMenu.value.trim().toLowerCase();
     document.querySelectorAll(".menu-item").forEach((item) => {
+      if (item.dataset.permissaoOculto === "1") {
+        item.style.display = "none";
+        return;
+      }
       const texto = item.textContent.toLowerCase();
-      item.style.display = texto.includes(termo) ? "flex" : "none";
+      item.style.display = !termo || texto.includes(termo) ? "flex" : "none";
+    });
+    // Oculta o rotulo de secao quando nenhum item visivel corresponde a busca
+    document.querySelectorAll(".menu-subgroup-label").forEach((label) => {
+      const grupo = label.id === "menu-label-financeiro" ? VIEWS_FINANCEIRO : VIEWS_CONTROLE;
+      const algumVisivel = grupo.some((viewId) => {
+        const item = document.querySelector(`.menu-item[data-view="${viewId}"]`);
+        if (!item || item.dataset.permissaoOculto === "1") return false;
+        return !termo || item.textContent.toLowerCase().includes(termo);
+      });
+      label.style.display = algumVisivel ? "" : "none";
     });
   });
 }
@@ -382,7 +444,7 @@ let saidaPendente = null; // identificador aguardando escolha da forma de pagame
 async function registrarSaida(identificador) {
   // Abre o modal de forma de pagamento antes de confirmar a saida
   saidaPendente = identificador;
-  document.getElementById("modal-forma-pagamento").hidden = false;
+  document.getElementById("modal-forma-saida").hidden = false;
 }
 
 async function confirmarSaida(identificador, formaPagamento) {
@@ -400,13 +462,13 @@ async function confirmarSaida(identificador, formaPagamento) {
 }
 
 function fecharModalForma() {
-  document.getElementById("modal-forma-pagamento").hidden = true;
+  document.getElementById("modal-forma-saida").hidden = true;
   saidaPendente = null;
 }
 
 document.getElementById("modal-forma-fechar").addEventListener("click", fecharModalForma);
 document.getElementById("btn-forma-cancelar").addEventListener("click", fecharModalForma);
-document.getElementById("modal-forma-pagamento").addEventListener("click", (evento) => {
+document.getElementById("modal-forma-saida").addEventListener("click", (evento) => {
   if (evento.target === evento.currentTarget) fecharModalForma();
 });
 
@@ -417,10 +479,6 @@ document.getElementById("forma-opcoes").addEventListener("click", (evento) => {
   const identificador = saidaPendente;
   fecharModalForma();
   if (identificador) confirmarSaida(identificador, forma);
-});
-
-document.addEventListener("keydown", (evento) => {
-  if (evento.key === "Escape" && !document.getElementById("modal-forma-pagamento").hidden) fecharModalForma();
 });
 
 // ---------------------- RENDER LISTA DE VEICULOS ----------------------
@@ -676,7 +734,7 @@ async function carregarFinanceiro() {
     const origem = lancamento.origem === "ticket" ? " (ticket)" : "";
 
     linha.innerHTML = `
-      <td>${lancamento.data || "—"}</td>
+      <td>${formatarDataHora(lancamento.data)}</td>
       <td class="cell-nome">${lancamento.descricao}${origem}</td>
       <td>
         <span class="badge ${tipoEntrada ? "badge-ativo" : "badge-inativo"}">${tipoEntrada ? "Entrada" : "Saída"}</span>
@@ -835,7 +893,7 @@ async function carregarUsuarios() {
 
     const perfil = nomePerfil(usuario.perfil);
     const statusAtivo = usuario.ativo;
-    const dataCadastro = (usuario.data_cadastro || "").split(" ")[0] || "—";
+    const dataCadastro = formatarDataHora(usuario.data_cadastro);
     const nomeEmpresa = usuario.master
       ? '<span class="badge badge-master">Master</span>'
       : (cacheEmpresas.find((e) => e.id === usuario.empresa_id)?.nome_fantasia || "—");
@@ -1443,6 +1501,7 @@ async function carregarConfiguracoes() {
   try {
     const dados = await chamarApi("/configuracoes");
     cacheConfiguracoes = dados;
+    carregarTiposVeiculo();
     // Identificacao
     document.getElementById("input-config-nome").value = dados.nome_estacionamento || "";
     document.getElementById("input-config-cnpj").value = dados.cnpj || "";
@@ -1498,6 +1557,9 @@ async function carregarConfiguracoes() {
     document.getElementById("input-config-tp-noturno").value = tp.valor_noturno ?? "";
     document.getElementById("input-config-tp-fim-semana").value = tp.fim_semana ?? "";
     document.getElementById("input-config-tp-feriados").value = tp.feriados ?? "";
+    document.getElementById("input-config-tp-ticket-perdido").value = tp.valor_ticket_perdido ?? "";
+    document.getElementById("input-config-tp-pernoite").value = tp.pernoite_valor ?? "";
+    document.getElementById("input-config-tp-pernoite-horas").value = tp.pernoite_a_partir_horas ?? "";
 
     // Precos por tipo de veiculo
     document.getElementById("input-config-tp-carro-primeira").value = tp.primeira_hora ?? "";
@@ -1624,6 +1686,9 @@ async function salvarTabelaPrecos() {
     valor_noturno: "input-config-tp-noturno",
     fim_semana: "input-config-tp-fim-semana",
     feriados: "input-config-tp-feriados",
+    valor_ticket_perdido: "input-config-tp-ticket-perdido",
+    pernoite_valor: "input-config-tp-pernoite",
+    pernoite_a_partir_horas: "input-config-tp-pernoite-horas",
     // Carro (campos padrao)
     primeira_hora: "input-config-tp-carro-primeira",
     hora_adicional: "input-config-tp-carro-adicional",
@@ -1706,9 +1771,248 @@ document.getElementById("btn-config-ir-formas").addEventListener("click", () => 
   mostrarView("view-formas-pagamento");
 });
 
+// ---------------------- TIPOS DE VEICULO ----------------------
+
+const TIPOS_VEICULO_SISTEMA = ["Carro", "Moto", "Carro Grande", "Caminhonete"];
+let tiposVeiculoCache = [];
+
+async function carregarTiposVeiculo() {
+  try {
+    const dados = await chamarApi("/tipos-veiculo");
+    tiposVeiculoCache = dados.tipos_veiculo || [];
+    renderizarTiposVeiculo(tiposVeiculoCache);
+  } catch (erro) {
+    // Silencioso: a aba apenas fica vazia se o usuario nao puder ver
+    tiposVeiculoCache = [];
+    renderizarTiposVeiculo([]);
+  }
+}
+
+function renderizarTiposVeiculo(tipos) {
+  const corpo = document.getElementById("tabela-tipos-veiculo");
+  const empty = document.getElementById("tipos-veiculo-empty");
+  corpo.innerHTML = "";
+
+  // Quem nao pode editar configuracoes nao ve os botoes de acao
+  const podeEditar = !perfilUsuarioAtual || perfilUsuarioAtual === "admin" ||
+    ((permissoesMatriz && permissoesMatriz["configuracoes"] && permissoesMatriz["configuracoes"][perfilUsuarioAtual] || []).includes("editar"));
+
+  if (!tipos.length) {
+    empty.hidden = false;
+  } else {
+    empty.hidden = true;
+    tipos.forEach((tipo) => {
+      const linha = document.createElement("tr");
+      const ehSistema = TIPOS_VEICULO_SISTEMA.includes(tipo.nome);
+      const origem = ehSistema
+        ? '<span class="badge">Sistema</span>'
+        : `<span class="badge ${tipo.ativo ? "badge-ativo" : "badge-inativo"}">${tipo.ativo ? "Personalizado" : "Inativo"}</span>`;
+      const fmt = (v) => (v && Number(v) > 0 ? `R$ ${Number(v).toFixed(2)}` : '<em style="color:var(--color-text-light)">herda carro</em>');
+
+      const iconeEditar = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const iconeAtivar = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18.36 6.64a9 9 0 1 1-12.72 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 2v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      const iconeExcluir = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+      let acoes;
+      if (!podeEditar) {
+        acoes = '<em style="color:var(--color-text-light)">—</em>';
+      } else if (ehSistema) {
+        acoes = `
+          <button type="button" class="btn-acao" data-acao-tipo-veiculo="editar" data-id="${tipo.id}" title="Editar preços (nome e exclusão fixos — tipo do sistema)">
+            ${iconeEditar}
+          </button>
+          <button type="button" class="btn-acao" disabled title="Tipos do sistema não podem ser inativados (alimentam vagas e cobrança)">
+            ${iconeAtivar}
+          </button>
+          <button type="button" class="btn-acao" disabled title="Tipos do sistema não podem ser excluídos">
+            ${iconeExcluir}
+          </button>
+        `;
+      } else {
+        acoes = `
+          <button type="button" class="btn-acao" data-acao-tipo-veiculo="editar" data-id="${tipo.id}" title="Editar">
+            ${iconeEditar}
+          </button>
+          <button type="button" class="btn-acao" data-acao-tipo-veiculo="alternar" data-id="${tipo.id}" data-ativo="${tipo.ativo}" title="${tipo.ativo ? "Inativar" : "Ativar"}">
+            ${iconeAtivar}
+          </button>
+          <button type="button" class="btn-acao btn-acao-danger" data-acao-tipo-veiculo="excluir" data-id="${tipo.id}" data-nome="${escaparHtml(tipo.nome)}" title="Excluir">
+            ${iconeExcluir}
+          </button>
+        `;
+      }
+
+      linha.innerHTML = `
+        <td><strong>${escaparHtml(tipo.nome)}</strong></td>
+        <td>${fmt(tipo.primeira_hora)}</td>
+        <td>${fmt(tipo.hora_adicional)}</td>
+        <td>${fmt(tipo.diaria)}</td>
+        <td>${fmt(tipo.mensal)}</td>
+        <td>${origem}</td>
+        <td class="col-acoes">${acoes}</td>
+      `;
+      corpo.appendChild(linha);
+    });
+  }
+
+  atualizarSelectTiposEntrada(tipos);
+}
+
+document.getElementById("tabela-tipos-veiculo").addEventListener("click", async (evento) => {
+  const botao = evento.target.closest("[data-acao-tipo-veiculo]");
+  if (!botao) return;
+  const acao = botao.dataset.acaoTipoVeiculo;
+  const { id, nome } = botao.dataset;
+
+  if (acao === "editar") {
+    abrirModalTipoVeiculo(Number(id));
+    return;
+  }
+
+  if (acao === "alternar") {
+    const ativo = botao.dataset.ativo === "true";
+    try {
+      const dados = await chamarApi(`/tipos-veiculo/${id}/alternar-ativo`, { method: "POST" });
+      mostrarToast(dados.mensagem || "Status atualizado!", "success");
+      await carregarTiposVeiculo();
+    } catch (erro) {
+      mostrarToast(erro.message, "error");
+    }
+    return;
+  }
+
+  if (acao === "excluir") {
+    if (!confirm(`Excluir o tipo de veiculo "${nome}"? Os tickets existentes nao sao afetados.`)) return;
+    try {
+      const dados = await chamarApi(`/tipos-veiculo/${id}`, { method: "DELETE" });
+      mostrarToast(dados.mensagem || "Tipo de veiculo excluido!", "success");
+      await carregarTiposVeiculo();
+    } catch (erro) {
+      mostrarToast(erro.message, "error");
+    }
+  }
+});
+
+// ---------------------- MODAL EDITAR TIPO DE VEICULO ----------------------
+
+function abrirModalTipoVeiculo(id) {
+  const tipo = tiposVeiculoCache.find((t) => t.id === id);
+  if (!tipo) return;
+  const ehSistema = TIPOS_VEICULO_SISTEMA.includes(tipo.nome);
+  document.getElementById("modal-tipo-veiculo-titulo").textContent =
+    ehSistema ? `Editar preços — ${tipo.nome}` : "Editar tipo de veículo";
+  document.getElementById("modal-tipo-veiculo-descricao").textContent = ehSistema
+    ? "Consulte ou ajuste os valores cobrados para este tipo de veículo."
+    : "Atualize o nome e os valores cobrados para este tipo de veículo.";
+  document.getElementById("modal-tipo-veiculo-aviso").hidden = !ehSistema;
+  document.getElementById("input-tipo-veiculo-edit-id").value = tipo.id;
+  document.getElementById("input-tipo-veiculo-edit-nome").value = tipo.nome;
+  document.getElementById("input-tipo-veiculo-edit-nome").disabled = ehSistema;
+  document.getElementById("input-tipo-veiculo-edit-primeira").value = tipo.primeira_hora > 0 ? tipo.primeira_hora : "";
+  document.getElementById("input-tipo-veiculo-edit-adicional").value = tipo.hora_adicional > 0 ? tipo.hora_adicional : "";
+  document.getElementById("input-tipo-veiculo-edit-diaria").value = tipo.diaria > 0 ? tipo.diaria : "";
+  document.getElementById("input-tipo-veiculo-edit-mensal").value = tipo.mensal > 0 ? tipo.mensal : "";
+  document.getElementById("modal-tipo-veiculo").hidden = false;
+}
+
+function fecharModalTipoVeiculo() {
+  document.getElementById("modal-tipo-veiculo").hidden = true;
+}
+
+document.getElementById("modal-tipo-veiculo-fechar").addEventListener("click", fecharModalTipoVeiculo);
+document.getElementById("btn-tipo-veiculo-cancelar").addEventListener("click", fecharModalTipoVeiculo);
+
+document.getElementById("form-tipo-veiculo").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const id = document.getElementById("input-tipo-veiculo-edit-id").value;
+  const preco = (idCampo) => {
+    const el = document.getElementById(idCampo);
+    const v = el && el.value ? Number(el.value) : 0;
+    return v > 0 ? v : null;
+  };
+  const botaoSalvar = document.getElementById("btn-tipo-veiculo-salvar");
+  botaoSalvar.disabled = true;
+  try {
+    const dados = await chamarApi(`/tipos-veiculo/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        nome: document.getElementById("input-tipo-veiculo-edit-nome").value,
+        primeira_hora: preco("input-tipo-veiculo-edit-primeira"),
+        hora_adicional: preco("input-tipo-veiculo-edit-adicional"),
+        diaria: preco("input-tipo-veiculo-edit-diaria"),
+        mensal: preco("input-tipo-veiculo-edit-mensal"),
+      }),
+    });
+    mostrarToast(dados.mensagem || "Tipo atualizado!", "success");
+    fecharModalTipoVeiculo();
+    await carregarTiposVeiculo();
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  } finally {
+    botaoSalvar.disabled = false;
+  }
+});
+
+// Popula o select de tipo de veiculo do formulario de entrada (Emitir Ticket)
+function atualizarSelectTiposEntrada(tipos) {
+  const select = document.getElementById("input-tipo");
+  if (!select) return;
+  const atual = select.value;
+  const personalizados = (tipos || [])
+    .filter((t) => t.ativo !== false && !TIPOS_VEICULO_SISTEMA.includes(t.nome))
+    .map((t) => t.nome);
+  select.innerHTML = TIPOS_VEICULO_SISTEMA
+    .filter((n) => n !== "Carro Grande")
+    .map((n) => `<option value="${escaparHtml(n)}">${escaparHtml(n)}</option>`)
+    .join("") + personalizados
+    .map((n) => `<option value="${escaparHtml(n)}">${escaparHtml(n)}</option>`)
+    .join("");
+  if ([...select.options].some((o) => o.value === atual)) select.value = atual;
+}
+
+document.getElementById("btn-adicionar-tipo-veiculo").addEventListener("click", async () => {
+  const inputNome = document.getElementById("input-novo-tipo-veiculo");
+  const nome = inputNome.value.trim();
+  if (!nome) {
+    mostrarToast("Informe o nome do tipo de veiculo.", "error");
+    return;
+  }
+  const preco = (id) => {
+    const el = document.getElementById(id);
+    const v = el && el.value ? Number(el.value) : 0;
+    return v > 0 ? v : null;
+  };
+  const botao = document.getElementById("btn-adicionar-tipo-veiculo");
+  botao.disabled = true;
+  try {
+    const dados = await chamarApi("/tipos-veiculo", {
+      method: "POST",
+      body: JSON.stringify({
+        nome,
+        primeira_hora: preco("input-tipo-veiculo-primeira"),
+        hora_adicional: preco("input-tipo-veiculo-adicional"),
+        diaria: preco("input-tipo-veiculo-diaria"),
+        mensal: preco("input-tipo-veiculo-mensal"),
+      }),
+    });
+    mostrarToast(dados.mensagem || "Tipo de veiculo criado!", "success");
+    inputNome.value = "";
+    ["input-tipo-veiculo-primeira", "input-tipo-veiculo-adicional", "input-tipo-veiculo-diaria", "input-tipo-veiculo-mensal"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    await carregarTiposVeiculo();
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  } finally {
+    botao.disabled = false;
+  }
+});
+
 // ---------------------- FUNCOES E PERMISSOES ----------------------
 
 let permissoesMatriz = null;
+let perfilUsuarioAtual = null;
 let permissoesPerfis = [];
 let permissoesModulos = [];
 let permissoesAcoes = [];
@@ -1740,6 +2044,7 @@ const PERMISSOES_ACAO_ICON = {
 };
 
 const PERMISSOES_MODULO_LABEL = {
+  operacao: "Visão Geral / Pátio",
   caixa: "Caixa",
   pagamentos: "Pagamentos",
   formas_pagamento: "Formas de Pagamento",
@@ -1754,9 +2059,13 @@ const PERMISSOES_MODULO_LABEL = {
   dashboard_financeiro: "Dashboard Financeiro",
   relatorios: "Relatórios",
   usuarios: "Usuários",
+  clientes: "Clientes",
+  financeiro: "Lançamentos Financeiros",
+  configuracoes: "Configurações",
 };
 
 const PERMISSOES_MODULO_DESC = {
+  operacao: "Visão geral, pátio, histórico, busca e entrada/saída de veículos",
   caixa: "Abertura, fechamento, sangria e suprimento de caixa",
   pagamentos: "Registro, cancelamento e estorno de pagamentos",
   formas_pagamento: "Cadastro das formas de pagamento aceitas",
@@ -1771,25 +2080,28 @@ const PERMISSOES_MODULO_DESC = {
   dashboard_financeiro: "Indicadores e gráficos financeiros",
   relatorios: "Relatórios e exportações",
   usuarios: "Cadastro e gestão de usuários do sistema",
+  clientes: "Cadastro de clientes mensalistas (menu Clientes)",
+  financeiro: "Lançamentos manuais de entradas e saídas",
+  configuracoes: "Nome do estacionamento, vagas, preços, ticket e PIX",
 };
 
 // Agrupa os modulos por categoria para melhor organizacao
 const PERMISSOES_CATEGORIAS = [
   {
-    nome: "Operacional",
-    modulos: ["caixa", "pagamentos", "tabela_precos", "descontos", "cortesias", "estornos"],
+    nome: "Operação",
+    modulos: ["operacao", "caixa", "pagamentos", "tabela_precos", "descontos", "cortesias", "estornos"],
   },
   {
     nome: "Financeiro",
-    modulos: ["dashboard_financeiro", "relatorios", "formas_pagamento", "contas_receber"],
+    modulos: ["dashboard_financeiro", "relatorios", "formas_pagamento", "contas_receber", "financeiro"],
   },
   {
     nome: "Cadastros",
-    modulos: ["mensalistas", "convenios"],
+    modulos: ["mensalistas", "convenios", "clientes"],
   },
   {
     nome: "Administrativo",
-    modulos: ["usuarios", "auditoria"],
+    modulos: ["usuarios", "auditoria", "configuracoes"],
   },
 ];
 
@@ -2147,7 +2459,7 @@ async function carregarFormasPagamento() {
   const tbody = document.getElementById("tabela-formas-pagamento");
   const empty = document.getElementById("formas-pagamento-empty");
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="4" class="table-empty">Carregando formas de pagamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="3" class="table-empty">Carregando formas de pagamento...</td></tr>';
   if (empty) empty.hidden = true;
   try {
     const dados = await chamarApi("/formas-pagamento");
@@ -2160,7 +2472,6 @@ async function carregarFormasPagamento() {
     tbody.innerHTML = formas.map((f) => `
       <tr>
         <td>${f.nome}</td>
-        <td><code>${f.codigo}</code></td>
         <td>${f.ativo ? '<span class="badge badge-ativo">Ativa</span>' : '<span class="badge badge-inativo">Inativa</span>'}</td>
         <td class="col-acoes">
           <button type="button" class="btn-acao" data-editar-forma="${f.id}" title="Editar">
@@ -2175,7 +2486,7 @@ async function carregarFormasPagamento() {
       });
     });
   } catch (erro) {
-    tbody.innerHTML = `<tr><td colspan="4" class="table-empty">Erro: ${erro.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" class="table-empty">Erro: ${erro.message}</td></tr>`;
   }
 }
 
@@ -2184,8 +2495,6 @@ function abrirModalFormaPagamento(forma) {
   document.getElementById("modal-forma-pagamento-titulo").textContent = forma ? "Editar forma de pagamento" : "Nova forma de pagamento";
   document.getElementById("input-forma-pagamento-id").value = forma ? forma.id : "";
   document.getElementById("input-forma-pagamento-nome").value = forma ? forma.nome : "";
-  document.getElementById("input-forma-pagamento-codigo").value = forma ? forma.codigo : "";
-  document.getElementById("input-forma-pagamento-codigo").disabled = !!forma;
   document.getElementById("input-forma-pagamento-ativo").checked = forma ? forma.ativo : true;
   document.getElementById("modal-forma-pagamento").hidden = false;
 }
@@ -2203,7 +2512,6 @@ document.getElementById("form-forma-pagamento").addEventListener("submit", async
   evento.preventDefault();
   const id = formaPagamentoEditandoId;
   const nome = document.getElementById("input-forma-pagamento-nome").value.trim();
-  const codigo = document.getElementById("input-forma-pagamento-codigo").value.trim();
   const ativo = document.getElementById("input-forma-pagamento-ativo").checked;
   try {
     if (id) {
@@ -2212,6 +2520,9 @@ document.getElementById("form-forma-pagamento").addEventListener("submit", async
         body: JSON.stringify({ nome, ativo }),
       });
     } else {
+      // Codigo interno gerado a partir do nome (nao precisa ser digitado)
+      const codigo = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
       await chamarApi("/formas-pagamento", {
         method: "POST",
         body: JSON.stringify({ nome, codigo, ativo }),
@@ -2237,13 +2548,16 @@ const BOTOES_PERMISSAO = [
   { id: "btn-nova-conta", modulo: "contas_receber", acao: "criar" },
   { id: "btn-abrir-caixa", modulo: "caixa", acao: "criar" },
   { id: "btn-config-ir-formas", modulo: "formas_pagamento", acao: "criar" },
+  { id: "btn-salvar-configuracoes", modulo: "configuracoes", acao: "editar" },
+  { id: "btn-adicionar-tipo-veiculo", modulo: "configuracoes", acao: "editar" },
 ];
 
 // Mapeia cada item do sidebar (data-view) para o modulo de permissao.
-// Itens sem modulo (ex.: visao-geral) ficam sempre visiveis.
+// Itens sem modulo no mapa (ex.: Empresas, apenas master) ficam sempre visiveis.
 const MENU_PERMISSAO = {
+  "view-visao-geral": "operacao",
   "view-usuarios": "usuarios",
-  "view-clientes": "mensalistas",
+  "view-clientes": "clientes",
   "view-financeiro": "caixa",
   "view-caixa": "caixa",
   "view-pagamentos": "pagamentos",
@@ -2256,8 +2570,27 @@ const MENU_PERMISSAO = {
   "view-dashboard-financeiro": "dashboard_financeiro",
   "view-relatorios": "relatorios",
   "view-auditoria": "auditoria",
-  "view-configuracoes": "usuarios",
+  "view-nfse": "nfse",
+  "view-lista-negra": "lista_negra",
+  "view-reservas": "reservas",
+  "view-ocorrencias": "ocorrencias",
+  "view-notificacoes": "notificacoes",
+  "view-configuracoes": "configuracoes",
 };
+
+// Views do bloco Financeiro do sidebar (para exibir/ocultar o rotulo da secao)
+const VIEWS_FINANCEIRO = [
+  "view-financeiro", "view-caixa", "view-pagamentos", "view-formas-pagamento",
+  "view-mensalistas", "view-convenios", "view-contas-receber",
+  "view-descontos", "view-cortesias", "view-dashboard-financeiro",
+  "view-relatorios", "view-auditoria",
+];
+
+// Views do bloco Controle do sidebar (para exibir/ocultar o rotulo da secao)
+const VIEWS_CONTROLE = [
+  "view-nfse", "view-lista-negra", "view-reservas", "view-ocorrencias",
+  "view-notificacoes",
+];
 
 // Aplica as permissoes do usuario logado no frontend (oculta acoes nao permitidas)
 function aplicarPermissoesFrontend(perfil) {
@@ -2278,7 +2611,18 @@ function aplicarPermissoesFrontend(perfil) {
     if (!item) return;
     const permitido = (permissoesMatriz && permissoesMatriz[modulo] && permissoesMatriz[modulo][perfil] || []).includes("ver");
     item.style.display = permitido ? "" : "none";
+    item.dataset.permissaoOculto = permitido ? "" : "1";
   });
+
+  // Oculta o rotulo "Financeiro" se nenhum modulo financeiro estiver visivel
+  const labelFinanceiro = document.getElementById("menu-label-financeiro");
+  if (labelFinanceiro) {
+    const financeiroPermitido = VIEWS_FINANCEIRO.some((viewId) => {
+      const item = document.querySelector(`.menu-item[data-view="${viewId}"]`);
+      return item && item.dataset.permissaoOculto !== "1";
+    });
+    labelFinanceiro.style.display = financeiroPermitido ? "" : "none";
+  }
 
   // Aba "Funcoes e Permissoes" nas configuracoes: somente quem pode editar usuarios
   const abaPermissoes = document.querySelector('#tabs-config .tab[data-config-tab="permissoes"]');
@@ -2288,6 +2632,18 @@ function aplicarPermissoesFrontend(perfil) {
     if (!podeEditar) {
       const panePermissoes = document.querySelector('.config-tab-pane[data-config-pane="permissoes"]');
       if (panePermissoes) panePermissoes.hidden = true;
+    }
+  }
+
+  // Configuracoes do estacionamento: quem nao pode editar tem os campos somente leitura
+  const podeEditarConfig = (permissoesMatriz && permissoesMatriz["configuracoes"] && permissoesMatriz["configuracoes"][perfil] || []).includes("editar");
+  if (!podeEditarConfig) {
+    const formConfig = document.getElementById("form-configuracoes");
+    if (formConfig) {
+      formConfig.querySelectorAll("input, select, textarea").forEach((campo) => {
+        campo.readOnly = true;
+        campo.disabled = true;
+      });
     }
   }
 
@@ -2331,7 +2687,7 @@ async function carregarCaixa() {
       <div class="caixa-aberto">
         <span class="badge badge-ativo">Caixa aberto</span>
         <span>Operador: <strong>${caixaAberto.operador}</strong></span>
-        <span>Abertura: <strong>${caixaAberto.data_abertura}</strong></span>
+        <span>Abertura: <strong>${formatarDataHora(caixaAberto.data_abertura)}</strong></span>
         <span>Valor inicial: <strong>${formatarMoeda(caixaAberto.valor_inicial)}</strong></span>
       </div>
     `;
@@ -2352,8 +2708,8 @@ async function carregarCaixa() {
     const aberto = caixa.status === "aberto";
     linha.innerHTML = `
       <td class="cell-nome">${caixa.operador}</td>
-      <td>${caixa.data_abertura}</td>
-      <td>${caixa.data_fechamento || "—"}</td>
+      <td>${formatarDataHora(caixa.data_abertura)}</td>
+      <td>${formatarDataHora(caixa.data_fechamento)}</td>
       <td>${formatarMoeda(caixa.valor_inicial)}</td>
       <td>${formatarMoeda(caixa.valor_esperado)}</td>
       <td>${formatarMoeda(caixa.valor_contado)}</td>
@@ -2507,11 +2863,11 @@ async function carregarPagamentos() {
     const badge = status === "ativo" ? "badge-ativo" : status === "cancelado" ? "badge-inativo" : "badge-warn";
     linha.innerHTML = `
       <td>${pagamento.ticket_numero || "—"}</td>
-      <td>${pagamento.data}</td>
+      <td>${formatarDataHora(pagamento.data)}</td>
       <td class="valor-entrada">${formatarMoeda(pagamento.valor)}</td>
       <td><span class="badge">${FORMAS_LABEL[pagamento.forma_pagamento] || pagamento.forma_pagamento}</span></td>
       <td>${pagamento.operador || "—"}</td>
-      <td><span class="badge ${badge}">${status}</span></td>
+      <td><span class="badge ${badge}">${rotuloStatus(status)}</span></td>
       <td class="col-acoes">
         ${status === "ativo" ? `
           <button type="button" class="btn-acao" data-acao-pagamento="cancelar" data-id="${pagamento.id}" title="Cancelar">
@@ -2595,7 +2951,7 @@ async function carregarMensalistas() {
       <td>${m.telefone || "—"}</td>
       <td>${formatarMoeda(m.valor_mensal)}</td>
       <td>Dia ${m.dia_vencimento}</td>
-      <td><span class="badge ${badge}">${m.status}</span></td>
+      <td><span class="badge ${badge}">${rotuloStatus(m.status)}</span></td>
       <td class="col-acoes">
         <button type="button" class="btn-acao" data-acao-mensalista="editar" data-id="${m.id}" title="Editar">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2802,8 +3158,8 @@ async function carregarContasReceber() {
       <td>${conveniosMap[conta.convenio_id] || "—"}</td>
       <td>${conta.descricao || "—"}</td>
       <td class="valor-entrada">${formatarMoeda(conta.valor)}</td>
-      <td>${conta.vencimento || "—"}</td>
-      <td><span class="badge ${badge}">${conta.status}</span></td>
+      <td>${formatarDataHora(conta.vencimento)}</td>
+      <td><span class="badge ${badge}">${rotuloStatus(conta.status)}</span></td>
       <td class="col-acoes">
         ${conta.status === "aberta" ? `
           <button type="button" class="btn-acao" data-acao-conta="baixar" data-id="${conta.id}" title="Baixar (pagar)">
@@ -2986,7 +3342,7 @@ async function carregarCortesias() {
   cortesias.forEach((c) => {
     const linha = document.createElement("tr");
     linha.innerHTML = `
-      <td>${c.data}</td>
+      <td>${formatarDataHora(c.data)}</td>
       <td class="cell-nome">${c.motivo}</td>
       <td>${c.usuario || "—"}</td>
       <td>${c.autorizador || "—"}</td>
@@ -3049,37 +3405,227 @@ document.getElementById("tabela-cortesias").addEventListener("click", async (eve
 
 // ---------------------- AUDITORIA ----------------------
 
-async function carregarAuditoria() {
-  const corpo = document.getElementById("tabela-auditoria");
-  const empty = document.getElementById("auditoria-empty");
-  corpo.innerHTML = "";
+const AUDITORIA_PAGE_SIZE = 25;
+let auditoriaAlteracoes = [];
+let auditoriaAcessos = [];
+let auditoriaAbaAtual = "alteracoes";
+let auditoriaPagina = 1;
 
-  let dados;
+function escaparHtml(texto) {
+  return String(texto == null ? "" : texto)
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+function formatarDataAuditoria(data) {
+  // Aceita "DD/MM/YYYY HH:MM:SS" ou ISO; devolve "DD/MM HH:MM" quando possivel
+  if (!data) return "—";
+  const m = String(data).match(/^(\d{2})\/(\d{2})\/(\d{4})[ T](\d{2}):(\d{2})/);
+  if (m) return `${m[1]}/${m[2]}/${m[3]} ${m[4]}:${m[5]}`;
+  const d = new Date(data);
+  if (!isNaN(d)) return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  return String(data);
+}
+
+function audDentroDoPeriodo(data) {
+  const filtro = document.getElementById("filtro-auditoria-periodo").value;
+  if (filtro === "tudo") return true;
+  const d = new Date(String(data).replace(" ", "T"));
+  if (isNaN(d)) return filtro === "tudo";
+  const agora = new Date();
+  if (filtro === "hoje") {
+    return d.getFullYear() === agora.getFullYear() && d.getMonth() === agora.getMonth() && d.getDate() === agora.getDate();
+  }
+  const dias = parseInt(filtro, 10);
+  return (agora - d) <= dias * 24 * 60 * 60 * 1000;
+}
+
+async function carregarAuditoria() {
   try {
-    dados = await chamarApi("/auditoria");
+    const [alt, logs] = await Promise.all([chamarApi("/auditoria"), chamarApi("/logs-acesso")]);
+    auditoriaAlteracoes = (alt.auditoria || []).slice().reverse();
+    auditoriaAcessos = (logs.logs_acesso || []).slice().reverse();
   } catch (erro) {
     mostrarToast(erro.message, "error");
-    corpo.innerHTML = '<tr><td colspan="7" class="table-empty">Erro ao carregar auditoria.</td></tr>';
-    return;
+    auditoriaAlteracoes = [];
+    auditoriaAcessos = [];
   }
 
-  const registros = dados.auditoria || [];
-  empty.hidden = registros.length > 0;
+  // Resumo
+  document.getElementById("aud-total-alteracoes").textContent = auditoriaAlteracoes.length;
+  document.getElementById("aud-total-acessos").textContent = auditoriaAcessos.length;
+  const ultimo = auditoriaAcessos.find((l) => l.acao === "login") || auditoriaAcessos[0];
+  document.getElementById("aud-ultimo-acesso").textContent =
+    ultimo ? `${ultimo.usuario || "—"} · ${formatarDataAuditoria(ultimo.data)}` : "—";
 
-  registros.slice().reverse().forEach((a) => {
-    const linha = document.createElement("tr");
-    linha.innerHTML = `
-      <td>${a.data}</td>
-      <td><span class="badge">${a.tabela}</span></td>
-      <td>${a.registro_id || "—"}</td>
-      <td>${a.campo || "—"}</td>
-      <td>${a.valor_antigo || "—"}</td>
-      <td>${a.valor_novo || "—"}</td>
-      <td>${a.usuario || "—"}</td>
-    `;
-    corpo.appendChild(linha);
+  preencherFiltrosAuditoria();
+  auditoriaPagina = 1;
+  renderizarAuditoria();
+}
+
+function preencherFiltrosAuditoria() {
+  const selUsuario = document.getElementById("filtro-auditoria-usuario");
+  const selTabela = document.getElementById("filtro-auditoria-tabela");
+  const usuarioAtual = selUsuario.value;
+  const tabelaAtual = selTabela.value;
+
+  const usuarios = new Set();
+  auditoriaAlteracoes.forEach((a) => a.usuario && usuarios.add(a.usuario));
+  auditoriaAcessos.forEach((l) => l.usuario && usuarios.add(l.usuario));
+  const tabelas = new Set(auditoriaAlteracoes.map((a) => a.tabela).filter(Boolean));
+
+  selUsuario.innerHTML = '<option value="">Todos os usuários</option>' +
+    [...usuarios].sort().map((u) => `<option value="${escaparHtml(u)}">${escaparHtml(u)}</option>`).join("");
+  selTabela.innerHTML = '<option value="">Todas as tabelas</option>' +
+    [...tabelas].sort().map((t) => `<option value="${escaparHtml(t)}">${escaparHtml(t)}</option>`).join("");
+
+  selUsuario.value = usuarios.has(usuarioAtual) ? usuarioAtual : "";
+  selTabela.value = tabelas.has(tabelaAtual) ? tabelaAtual : "";
+}
+
+function audFiltrados() {
+  const busca = document.getElementById("filtro-auditoria-busca").value.trim().toLowerCase();
+  const usuario = document.getElementById("filtro-auditoria-usuario").value;
+  const tabela = document.getElementById("filtro-auditoria-tabela").value;
+  const acao = document.getElementById("filtro-auditoria-acao").value;
+  const ehAcessos = auditoriaAbaAtual === "acessos";
+
+  const base = ehAcessos ? auditoriaAcessos : auditoriaAlteracoes;
+  return base.filter((item) => {
+    if (!audDentroDoPeriodo(item.data)) return false;
+    if (usuario && (item.usuario || "") !== usuario) return false;
+    if (ehAcessos) {
+      if (acao && (item.acao || "") !== acao) return false;
+    } else if (tabela && (item.tabela || "") !== tabela) {
+      return false;
+    }
+    if (busca) {
+      const alvo = ehAcessos
+        ? `${item.usuario || ""} ${item.acao || ""} ${item.modulo || ""} ${item.ip || ""}`
+        : `${item.tabela || ""} ${item.registro_id || ""} ${item.campo || ""} ${item.valor_antigo || ""} ${item.valor_novo || ""} ${item.usuario || ""}`;
+      if (!alvo.toLowerCase().includes(busca)) return false;
+    }
+    return true;
   });
 }
+
+function renderizarAuditoria() {
+  const ehAcessos = auditoriaAbaAtual === "acessos";
+  const corpo = document.getElementById(ehAcessos ? "tabela-auditoria-acessos" : "tabela-auditoria");
+  const empty = document.getElementById(ehAcessos ? "auditoria-acessos-empty" : "auditoria-empty");
+  const filtrados = audFiltrados();
+
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / AUDITORIA_PAGE_SIZE));
+  if (auditoriaPagina > totalPaginas) auditoriaPagina = totalPaginas;
+  const inicio = (auditoriaPagina - 1) * AUDITORIA_PAGE_SIZE;
+  const pagina = filtrados.slice(inicio, inicio + AUDITORIA_PAGE_SIZE);
+
+  corpo.innerHTML = "";
+  if (!pagina.length) {
+    empty.hidden = false;
+  } else {
+    empty.hidden = true;
+    pagina.forEach((item) => {
+      const linha = document.createElement("tr");
+      if (ehAcessos) {
+        const corAcao = item.acao === "login" ? "badge-success" : item.acao === "logout" ? "badge-danger" : "";
+        linha.innerHTML = `
+          <td>${escaparHtml(formatarDataAuditoria(item.data))}</td>
+          <td>${escaparHtml(item.usuario || "—")}</td>
+          <td><span class="badge ${corAcao}">${escaparHtml(item.acao || "—")}</span></td>
+          <td>${escaparHtml(item.modulo || "—")}</td>
+          <td>${escaparHtml(item.ip || "—")}</td>
+        `;
+      } else {
+        linha.innerHTML = `
+          <td>${escaparHtml(formatarDataAuditoria(item.data))}</td>
+          <td><span class="badge">${escaparHtml(item.tabela || "—")}</span></td>
+          <td>${escaparHtml(item.registro_id || "—")}</td>
+          <td>${escaparHtml(item.campo || "—")}</td>
+          <td class="aud-alteracao">
+            <span class="aud-valor-antigo">${escaparHtml(item.valor_antigo || "—")}</span>
+            <span class="aud-seta">→</span>
+            <span class="aud-valor-novo">${escaparHtml(item.valor_novo || "—")}</span>
+          </td>
+          <td>${escaparHtml(item.usuario || "—")}</td>
+          <td>${escaparHtml(item.ip || "—")}</td>
+        `;
+      }
+      corpo.appendChild(linha);
+    });
+  }
+
+  document.getElementById("aud-pag-info").textContent = `Página ${auditoriaPagina} de ${totalPaginas}`;
+  document.getElementById("aud-pag-anterior").disabled = auditoriaPagina <= 1;
+  document.getElementById("aud-pag-proxima").disabled = auditoriaPagina >= totalPaginas;
+  document.getElementById("aud-contagem").textContent =
+    `${filtrados.length} registro${filtrados.length === 1 ? "" : "s"} encontrado${filtrados.length === 1 ? "" : "s"}`;
+}
+
+function exportarAuditoriaCSV() {
+  const ehAcessos = auditoriaAbaAtual === "acessos";
+  const filtrados = audFiltrados();
+  let csv;
+  if (ehAcessos) {
+    csv = "Data;Usuario;Acao;Modulo;IP\n" + filtrados
+      .map((l) => [formatarDataAuditoria(l.data), l.usuario, l.acao, l.modulo, l.ip].join(";"))
+      .join("\n");
+  } else {
+    csv = "Data;Tabela;Registro;Campo;ValorAntigo;ValorNovo;Usuario;IP\n" + filtrados
+      .map((a) => [formatarDataAuditoria(a.data), a.tabela, a.registro_id, a.campo, a.valor_antigo, a.valor_novo, a.usuario, a.ip].join(";"))
+      .join("\n");
+  }
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = ehAcessos ? "logs_acesso.csv" : "auditoria_alteracoes.csv";
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+// Abas da auditoria
+document.querySelectorAll("#tabs-auditoria .tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll("#tabs-auditoria .tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    auditoriaAbaAtual = tab.dataset.auditoriaTab;
+    auditoriaPagina = 1;
+
+    document.querySelectorAll("[data-auditoria-pane]").forEach((pane) => {
+      pane.hidden = pane.dataset.auditoriaPane !== auditoriaAbaAtual;
+    });
+    // Filtro especifico de cada aba
+    document.getElementById("filtro-auditoria-tabela").hidden = auditoriaAbaAtual === "acessos";
+    document.getElementById("filtro-auditoria-acao").hidden = auditoriaAbaAtual !== "acessos";
+
+    renderizarAuditoria();
+  });
+});
+
+["filtro-auditoria-busca", "filtro-auditoria-periodo", "filtro-auditoria-usuario", "filtro-auditoria-tabela", "filtro-auditoria-acao"].forEach((id) => {
+  document.getElementById(id).addEventListener("input", () => {
+    auditoriaPagina = 1;
+    renderizarAuditoria();
+  });
+});
+document.getElementById("filtro-auditoria-periodo").addEventListener("change", () => {
+  auditoriaPagina = 1;
+  renderizarAuditoria();
+});
+["filtro-auditoria-usuario", "filtro-auditoria-tabela", "filtro-auditoria-acao"].forEach((id) => {
+  document.getElementById(id).addEventListener("change", () => {
+    auditoriaPagina = 1;
+    renderizarAuditoria();
+  });
+});
+
+document.getElementById("btn-exportar-auditoria").addEventListener("click", exportarAuditoriaCSV);
+document.getElementById("aud-pag-anterior").addEventListener("click", () => {
+  if (auditoriaPagina > 1) { auditoriaPagina--; renderizarAuditoria(); }
+});
+document.getElementById("aud-pag-proxima").addEventListener("click", () => {
+  auditoriaPagina++; renderizarAuditoria();
+});
 
 // ---------------------- DASHBOARD FINANCEIRO ----------------------
 
@@ -3206,7 +3752,7 @@ async function carregarRelatoriosFinanceiros() {
       const linha = document.createElement("tr");
       const tipoEntrada = lancamento.tipo === "entrada";
       linha.innerHTML = `
-        <td>${lancamento.data || "—"}</td>
+        <td>${formatarDataHora(lancamento.data)}</td>
         <td class="cell-nome">${lancamento.descricao}</td>
         <td><span class="badge ${tipoEntrada ? "badge-ativo" : "badge-inativo"}">${tipoEntrada ? "Entrada" : "Saída"}</span></td>
         <td><span class="badge">${FORMAS_LABEL[lancamento.forma_pagamento] || lancamento.forma_pagamento}</span></td>
@@ -3214,6 +3760,9 @@ async function carregarRelatoriosFinanceiros() {
       `;
       corpo.appendChild(linha);
     });
+
+    // Ocupacao + DRE (complementares, carregados em paralelo)
+    carregarOcupacaoDRE();
   } catch (erro) {
     mostrarToast(erro.message, "error");
   }
@@ -3282,6 +3831,7 @@ async function carregarSessao() {
       permissoesModulos = permDados.modulos || [];
       permissoesAcoes = permDados.acoes || [];
       permissoesPerfisDetalhes = permDados.perfis_detalhes || [];
+      perfilUsuarioAtual = usuario.perfil;
       atualizarSelectPerfis();
       aplicarPermissoesFrontend(usuario.perfil);
 
@@ -3366,16 +3916,630 @@ document.getElementById("form-alterar-senha").addEventListener("submit", async (
   }
 });
 
+// ---------------------- NFSE ----------------------
+
+async function carregarNFSE() {
+  const corpo = document.getElementById("tabela-nfse");
+  const empty = document.getElementById("nfse-empty");
+  corpo.innerHTML = "";
+
+  let dados;
+  try {
+    dados = await chamarApi("/nfse");
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+    corpo.innerHTML = '<tr><td colspan="8" class="table-empty">Erro ao carregar notas.</td></tr>';
+    return;
+  }
+
+  const notas = dados.notas || [];
+  empty.hidden = notas.length > 0;
+
+  notas.forEach((n) => {
+    const linha = document.createElement("tr");
+    const tomador = n.razao_social || n.cpf_cnpj || "—";
+    const statusCancelada = n.status === "cancelada";
+    linha.innerHTML = `
+      <td><strong>#${n.numero}</strong></td>
+      <td>${formatarDataHora(n.data)}</td>
+      <td>${n.ticket_numero || "—"}</td>
+      <td>${n.placa || "—"}</td>
+      <td class="cell-nome">${tomador}</td>
+      <td class="valor-entrada">${formatarMoeda(n.valor)}</td>
+      <td><span class="badge ${statusCancelada ? "badge-inativo" : "badge-ativo"}">${statusCancelada ? "Cancelada" : "Emitida"}</span></td>
+      <td class="col-acoes">
+        ${statusCancelada ? "" : `<button type="button" class="btn-acao btn-acao-danger" data-acao-nfse="cancelar" data-id="${n.id}" title="Cancelar nota">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>`}
+      </td>
+    `;
+    corpo.appendChild(linha);
+  });
+}
+
+function fecharModalNFSE() {
+  document.getElementById("modal-nfse").hidden = true;
+  document.getElementById("form-nfse").reset();
+}
+document.getElementById("btn-nova-nfse").addEventListener("click", () => {
+  document.getElementById("modal-nfse").hidden = false;
+  setTimeout(() => document.getElementById("input-nfse-valor").focus(), 50);
+});
+document.getElementById("modal-nfse-fechar").addEventListener("click", fecharModalNFSE);
+document.getElementById("btn-nfse-cancelar").addEventListener("click", fecharModalNFSE);
+document.getElementById("modal-nfse").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) fecharModalNFSE();
+});
+document.getElementById("form-nfse").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const payload = {
+    valor: Number(document.getElementById("input-nfse-valor").value),
+    ticket_numero: document.getElementById("input-nfse-ticket").value || null,
+    placa: document.getElementById("input-nfse-placa").value.trim(),
+    cpf_cnpj: document.getElementById("input-nfse-cpf-cnpj").value.trim(),
+    razao_social: document.getElementById("input-nfse-razao").value.trim(),
+    servico: document.getElementById("input-nfse-servico").value.trim() || "Estacionamento de veiculos",
+  };
+  try {
+    const dados = await chamarApi("/nfse", { method: "POST", body: JSON.stringify(payload) });
+    mostrarToast(dados.mensagem, "success");
+    fecharModalNFSE();
+    await carregarNFSE();
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+});
+document.getElementById("tabela-nfse").addEventListener("click", async (evento) => {
+  const botao = evento.target.closest("button[data-acao-nfse]");
+  if (!botao || botao.dataset.acaoNfse !== "cancelar") return;
+  if (!confirm("Deseja cancelar esta nota fiscal?")) return;
+  try {
+    const dados = await chamarApi(`/nfse/${botao.dataset.id}/cancelar`, { method: "POST" });
+    mostrarToast(dados.mensagem, "success");
+    await carregarNFSE();
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+});
+
+// ---------------------- LISTA NEGRA ----------------------
+
+async function carregarListaNegra() {
+  const corpo = document.getElementById("tabela-lista-negra");
+  const empty = document.getElementById("lista-negra-empty");
+  corpo.innerHTML = "";
+
+  let dados;
+  try {
+    dados = await chamarApi("/lista-negra");
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+    corpo.innerHTML = '<tr><td colspan="6" class="table-empty">Erro ao carregar lista negra.</td></tr>';
+    return;
+  }
+
+  const registros = dados.registros || [];
+  empty.hidden = registros.length > 0;
+
+  registros.forEach((r) => {
+    const linha = document.createElement("tr");
+    linha.innerHTML = `
+      <td class="cell-nome"><strong>${r.placa}</strong></td>
+      <td>${r.motivo || "—"}</td>
+      <td><span class="badge ${r.ativo ? "badge-ativo" : "badge-inativo"}">${r.ativo ? "Bloqueado" : "Liberado"}</span></td>
+      <td>${r.usuario || "—"}</td>
+      <td>${formatarDataHora(r.data)}</td>
+      <td class="col-acoes">
+        <button type="button" class="btn-acao" data-acao-lista-negra="editar" data-id="${r.id}" title="Editar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="btn-acao" data-acao-lista-negra="alternar" data-id="${r.id}" title="${r.ativo ? "Liberar" : "Bloquear"}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v18M5 10l7-7 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="btn-acao btn-acao-danger" data-acao-lista-negra="excluir" data-id="${r.id}" title="Excluir">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </td>
+    `;
+    corpo.appendChild(linha);
+  });
+}
+
+function abrirModalListaNegra(r = null) {
+  document.getElementById("input-lista-negra-id").value = r ? r.id : "";
+  document.getElementById("input-lista-negra-placa").value = r ? r.placa : "";
+  document.getElementById("input-lista-negra-motivo").value = r ? r.motivo : "";
+  document.getElementById("modal-lista-negra").hidden = false;
+  setTimeout(() => document.getElementById("input-lista-negra-placa").focus(), 50);
+}
+function fecharModalListaNegra() {
+  document.getElementById("modal-lista-negra").hidden = true;
+  document.getElementById("form-lista-negra").reset();
+}
+document.getElementById("btn-novo-bloqueio").addEventListener("click", () => abrirModalListaNegra());
+document.getElementById("modal-lista-negra-fechar").addEventListener("click", fecharModalListaNegra);
+document.getElementById("btn-lista-negra-cancelar").addEventListener("click", fecharModalListaNegra);
+document.getElementById("modal-lista-negra").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) fecharModalListaNegra();
+});
+document.getElementById("form-lista-negra").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("input-lista-negra-id").value;
+  const payload = {
+    placa: document.getElementById("input-lista-negra-placa").value.trim(),
+    motivo: document.getElementById("input-lista-negra-motivo").value.trim(),
+  };
+  try {
+    const dados = id
+      ? await chamarApi(`/lista-negra/${id}`, { method: "PUT", body: JSON.stringify(payload) })
+      : await chamarApi("/lista-negra", { method: "POST", body: JSON.stringify(payload) });
+    mostrarToast(dados.mensagem, "success");
+    fecharModalListaNegra();
+    await carregarListaNegra();
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+});
+document.getElementById("tabela-lista-negra").addEventListener("click", async (evento) => {
+  const botao = evento.target.closest("button[data-acao-lista-negra]");
+  if (!botao) return;
+  const acao = botao.dataset.acaoListaNegra;
+  try {
+    if (acao === "editar") {
+      const dados = await chamarApi("/lista-negra");
+      const r = (dados.registros || []).find((x) => String(x.id) === String(botao.dataset.id));
+      if (r) abrirModalListaNegra(r);
+    } else if (acao === "alternar") {
+      const dados = await chamarApi(`/lista-negra/${botao.dataset.id}/alternar-ativo`, { method: "POST" });
+      mostrarToast(dados.mensagem, "success");
+      await carregarListaNegra();
+    } else if (acao === "excluir") {
+      if (!confirm("Deseja remover este bloqueio?")) return;
+      const dados = await chamarApi(`/lista-negra/${botao.dataset.id}`, { method: "DELETE" });
+      mostrarToast(dados.mensagem, "success");
+      await carregarListaNegra();
+    }
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+});
+
+// ---------------------- RESERVAS ----------------------
+
+function paraDatetimeLocal(valor) {
+  if (!valor) return "";
+  const m = valor.match(/(\d{2})\/(\d{2})\/(\d{4})[ T]?(\d{2}):(\d{2})?/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}T${m[4] || "00"}:${m[5] || "00"}`;
+  return valor.replace(" ", "T");
+}
+function paraDataBR(valor) {
+  if (!valor) return "";
+  const m = valor.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+  return valor;
+}
+
+async function carregarReservas() {
+  const corpo = document.getElementById("tabela-reservas");
+  const empty = document.getElementById("reservas-empty");
+  corpo.innerHTML = "";
+
+  let dados;
+  try {
+    dados = await chamarApi("/reservas");
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+    corpo.innerHTML = '<tr><td colspan="9" class="table-empty">Erro ao carregar reservas.</td></tr>';
+    return;
+  }
+
+  const reservas = dados.reservas || [];
+  empty.hidden = reservas.length > 0;
+
+  const STATUS_LABEL = { ativa: "Ativa", concluida: "Concluída", cancelada: "Cancelada" };
+  reservas.forEach((r) => {
+    const linha = document.createElement("tr");
+    const statusClass = r.status === "ativa" ? "badge-ativo" : (r.status === "cancelada" ? "badge-inativo" : "");
+    linha.innerHTML = `
+      <td class="cell-nome">${r.cliente}</td>
+      <td>${r.telefone || "—"}</td>
+      <td>${r.placa || "—"}</td>
+      <td>${r.vaga || "—"}</td>
+      <td>${formatarDataHora(r.data_inicio)}</td>
+      <td>${formatarDataHora(r.data_fim)}</td>
+      <td class="valor-entrada">${formatarMoeda(r.valor)}</td>
+      <td><span class="badge ${statusClass}">${STATUS_LABEL[r.status] || r.status}</span></td>
+      <td class="col-acoes">
+        ${r.status === "ativa" ? `
+          <button type="button" class="btn-acao" data-acao-reserva="editar" data-id="${r.id}" title="Editar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button type="button" class="btn-acao btn-acao-danger" data-acao-reserva="cancelar" data-id="${r.id}" title="Cancelar reserva">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>` : `<button type="button" class="btn-acao" data-acao-reserva="editar" data-id="${r.id}" title="Editar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>`}
+      </td>
+    `;
+    corpo.appendChild(linha);
+  });
+}
+
+function abrirModalReserva(r = null) {
+  document.getElementById("input-reserva-id").value = r ? r.id : "";
+  document.getElementById("input-reserva-cliente").value = r ? r.cliente : "";
+  document.getElementById("input-reserva-telefone").value = r ? r.telefone : "";
+  document.getElementById("input-reserva-placa").value = r ? r.placa : "";
+  document.getElementById("input-reserva-inicio").value = r ? paraDatetimeLocal(r.data_inicio) : "";
+  document.getElementById("input-reserva-fim").value = r ? paraDatetimeLocal(r.data_fim) : "";
+  document.getElementById("input-reserva-vaga").value = r && r.vaga ? r.vaga : "";
+  document.getElementById("input-reserva-tipo").value = r ? r.tipo_veiculo : "Carro";
+  document.getElementById("input-reserva-valor").value = r ? r.valor : "";
+  document.getElementById("input-reserva-obs").value = r ? r.observacao : "";
+  document.getElementById("modal-reserva-titulo").textContent = r ? "Editar reserva" : "Nova reserva";
+  document.getElementById("modal-reserva").hidden = false;
+  setTimeout(() => document.getElementById("input-reserva-cliente").focus(), 50);
+}
+function fecharModalReserva() {
+  document.getElementById("modal-reserva").hidden = true;
+  document.getElementById("form-reserva").reset();
+}
+document.getElementById("btn-nova-reserva").addEventListener("click", () => abrirModalReserva());
+document.getElementById("modal-reserva-fechar").addEventListener("click", fecharModalReserva);
+document.getElementById("btn-reserva-cancelar").addEventListener("click", fecharModalReserva);
+document.getElementById("modal-reserva").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) fecharModalReserva();
+});
+document.getElementById("form-reserva").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("input-reserva-id").value;
+  const payload = {
+    cliente: document.getElementById("input-reserva-cliente").value.trim(),
+    telefone: document.getElementById("input-reserva-telefone").value.trim(),
+    placa: document.getElementById("input-reserva-placa").value.trim(),
+    data_inicio: paraDataBR(document.getElementById("input-reserva-inicio").value),
+    data_fim: paraDataBR(document.getElementById("input-reserva-fim").value),
+    vaga: document.getElementById("input-reserva-vaga").value || null,
+    tipo_veiculo: document.getElementById("input-reserva-tipo").value,
+    valor: Number(document.getElementById("input-reserva-valor").value || 0),
+    observacao: document.getElementById("input-reserva-obs").value.trim(),
+  };
+  try {
+    const dados = id
+      ? await chamarApi(`/reservas/${id}`, { method: "PUT", body: JSON.stringify(payload) })
+      : await chamarApi("/reservas", { method: "POST", body: JSON.stringify(payload) });
+    mostrarToast(dados.mensagem, "success");
+    fecharModalReserva();
+    await carregarReservas();
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+});
+document.getElementById("tabela-reservas").addEventListener("click", async (evento) => {
+  const botao = evento.target.closest("button[data-acao-reserva]");
+  if (!botao) return;
+  const acao = botao.dataset.acaoReserva;
+  try {
+    if (acao === "editar") {
+      const dados = await chamarApi("/reservas");
+      const r = (dados.reservas || []).find((x) => String(x.id) === String(botao.dataset.id));
+      if (r) abrirModalReserva(r);
+    } else if (acao === "cancelar") {
+      if (!confirm("Deseja cancelar esta reserva?")) return;
+      const dados = await chamarApi(`/reservas/${botao.dataset.id}/cancelar`, { method: "POST" });
+      mostrarToast(dados.mensagem, "success");
+      await carregarReservas();
+    }
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+});
+
+// ---------------------- OCORRENCIAS ----------------------
+
+async function carregarOcorrencias() {
+  const corpo = document.getElementById("tabela-ocorrencias");
+  const empty = document.getElementById("ocorrencias-empty");
+  corpo.innerHTML = "";
+
+  let dados;
+  try {
+    dados = await chamarApi("/ocorrencias");
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+    corpo.innerHTML = '<tr><td colspan="8" class="table-empty">Erro ao carregar ocorrências.</td></tr>';
+    return;
+  }
+
+  const ocorrencias = dados.ocorrencias || [];
+  empty.hidden = ocorrencias.length > 0;
+
+  const TIPO_LABEL = { avaria: "Avaria", perda: "Perda", outro: "Outro" };
+  ocorrencias.forEach((o) => {
+    const linha = document.createElement("tr");
+    const resolvida = o.status === "resolvida";
+    linha.innerHTML = `
+      <td>${formatarDataHora(o.data)}</td>
+      <td><span class="badge">${TIPO_LABEL[o.tipo] || o.tipo}</span></td>
+      <td><strong>${o.placa || "—"}</strong></td>
+      <td>${o.ticket_numero || "—"}</td>
+      <td class="cell-nome">${o.descricao}</td>
+      <td><span class="badge ${resolvida ? "badge-ativo" : "badge-inativo"}">${resolvida ? "Resolvida" : "Aberta"}</span></td>
+      <td>${o.usuario || "—"}</td>
+      <td class="col-acoes">
+        <button type="button" class="btn-acao" data-acao-ocorrencia="editar" data-id="${o.id}" title="Editar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </td>
+    `;
+    corpo.appendChild(linha);
+  });
+}
+
+function abrirModalOcorrencia(o = null) {
+  document.getElementById("input-ocorrencia-id").value = o ? o.id : "";
+  document.getElementById("input-ocorrencia-tipo").value = o ? o.tipo : "avaria";
+  document.getElementById("input-ocorrencia-placa").value = o ? o.placa : "";
+  document.getElementById("input-ocorrencia-ticket").value = o && o.ticket_numero ? o.ticket_numero : "";
+  document.getElementById("input-ocorrencia-descricao").value = o ? o.descricao : "";
+  document.getElementById("input-ocorrencia-autorizador").value = o ? o.autorizador : "";
+  document.getElementById("modal-ocorrencia").hidden = false;
+  setTimeout(() => document.getElementById("input-ocorrencia-descricao").focus(), 50);
+}
+function fecharModalOcorrencia() {
+  document.getElementById("modal-ocorrencia").hidden = true;
+  document.getElementById("form-ocorrencia").reset();
+}
+document.getElementById("btn-nova-ocorrencia").addEventListener("click", () => abrirModalOcorrencia());
+document.getElementById("modal-ocorrencia-fechar").addEventListener("click", fecharModalOcorrencia);
+document.getElementById("btn-ocorrencia-cancelar").addEventListener("click", fecharModalOcorrencia);
+document.getElementById("modal-ocorrencia").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) fecharModalOcorrencia();
+});
+document.getElementById("form-ocorrencia").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("input-ocorrencia-id").value;
+  const payload = {
+    tipo: document.getElementById("input-ocorrencia-tipo").value,
+    placa: document.getElementById("input-ocorrencia-placa").value.trim(),
+    ticket_numero: document.getElementById("input-ocorrencia-ticket").value || null,
+    descricao: document.getElementById("input-ocorrencia-descricao").value.trim(),
+    autorizador: document.getElementById("input-ocorrencia-autorizador").value.trim(),
+  };
+  try {
+    const dados = id
+      ? await chamarApi(`/ocorrencias/${id}`, { method: "PUT", body: JSON.stringify(payload) })
+      : await chamarApi("/ocorrencias", { method: "POST", body: JSON.stringify(payload) });
+    mostrarToast(dados.mensagem, "success");
+    fecharModalOcorrencia();
+    await carregarOcorrencias();
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+});
+document.getElementById("tabela-ocorrencias").addEventListener("click", async (evento) => {
+  const botao = evento.target.closest("button[data-acao-ocorrencia]");
+  if (!botao) return;
+  try {
+    const dados = await chamarApi("/ocorrencias");
+    const o = (dados.ocorrencias || []).find((x) => String(x.id) === String(botao.dataset.id));
+    if (o) abrirModalOcorrencia(o);
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+});
+
+// ---------------------- AVISOS (NOTIFICACOES) ----------------------
+
+async function carregarAvisos() {
+  const corpo = document.getElementById("tabela-avisos");
+  const empty = document.getElementById("avisos-empty");
+  corpo.innerHTML = "";
+
+  let dados;
+  try {
+    dados = await chamarApi("/notificacoes-vencimento");
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+    corpo.innerHTML = '<tr><td colspan="5" class="table-empty">Erro ao carregar avisos.</td></tr>';
+    return;
+  }
+
+  document.getElementById("aviso-inadimplentes").textContent = dados.inadimplentes || 0;
+  document.getElementById("aviso-a-vencer").textContent = dados.a_vencer || 0;
+  document.getElementById("aviso-mensagem-geral").textContent = dados.mensagem_geral || "";
+
+  const avisos = dados.avisos || [];
+  empty.hidden = avisos.length > 0;
+
+  avisos.forEach((a) => {
+    const linha = document.createElement("tr");
+    const inadimplente = a.situacao === "inadimplente";
+    const contato = [];
+    if (a.whatsapp) contato.push(`<a class="link-contato" href="${a.whatsapp}" target="_blank" rel="noopener">WhatsApp</a>`);
+    if (a.mailto) contato.push(`<a class="link-contato" href="${a.mailto}">E-mail</a>`);
+    linha.innerHTML = `
+      <td class="cell-nome">${a.nome}</td>
+      <td>${a.competencia || "—"}</td>
+      <td class="valor-entrada">${formatarMoeda(a.valor)}</td>
+      <td><span class="badge ${inadimplente ? "badge-inativo" : "badge-ativo"}">${inadimplente ? "Inadimplente" : "A vencer"}</span></td>
+      <td>${contato.length ? contato.join(" · ") : "—"}</td>
+    `;
+    corpo.appendChild(linha);
+  });
+}
+
+// ---------------------- MAPA DE VAGAS ----------------------
+
+const MAPA_TIPO_CLASSE = {
+  Carro: "t-carro",
+  Moto: "t-moto",
+  "Carro Grande": "t-cg",
+  Caminhonete: "t-cam",
+};
+
+async function abrirMapaVagas() {
+  const grid = document.getElementById("mapa-vagas-grid");
+  grid.innerHTML = '<p class="empty-state">Carregando vagas...</p>';
+  document.getElementById("modal-mapa-vagas").hidden = false;
+
+  let dados;
+  try {
+    dados = await chamarApi("/vagas");
+  } catch (erro) {
+    grid.innerHTML = `<p class="empty-state">Erro: ${erro.message}</p>`;
+    return;
+  }
+
+  document.getElementById("mapa-total-vagas").textContent = dados.total_vagas || 0;
+  document.getElementById("mapa-ocupadas").textContent = dados.vagas_ocupadas || 0;
+  document.getElementById("mapa-disponiveis").textContent = dados.vagas_livres || 0;
+  const total = dados.total_vagas || 0;
+  const ocupadas = dados.vagas_ocupadas || 0;
+  document.getElementById("mapa-taxa").textContent = total ? `${Math.round((ocupadas / total) * 100)}%` : "0%";
+
+  // Indice das vagas ocupadas: numero da vaga -> dados do veiculo
+  const porVaga = {};
+  (dados.veiculos || []).forEach((v) => {
+    if (v.vaga) porVaga[v.vaga] = v;
+  });
+
+  grid.innerHTML = "";
+  for (let i = 1; i <= total; i++) {
+    const v = porVaga[i];
+    const vaga = document.createElement("div");
+    if (v) {
+      vaga.className = `mapa-vaga ocupada ${MAPA_TIPO_CLASSE[v.tipo_veiculo] || "t-carro"}`;
+      vaga.innerHTML = `<span class="mapa-vaga-num">${i}</span><span class="mapa-vaga-placa">${v.placa}</span>`;
+      vaga.title = `Vaga ${i} — ${v.placa}\n${v.tipo_veiculo}\nEntrada: ${formatarDataHora(v.entrada)}\nPermanência: ${v.tempo_estacionado || "-"}`;
+      vaga.addEventListener("click", () => {
+        mostrarToast(`Vaga ${i}: ${v.placa} (${v.tipo_veiculo}) — entrada ${formatarDataHora(v.entrada)}`, "info");
+      });
+    } else {
+      vaga.className = "mapa-vaga livre";
+      vaga.innerHTML = `<span class="mapa-vaga-num">${i}</span>`;
+      vaga.title = `Vaga ${i} — Livre`;
+    }
+    grid.appendChild(vaga);
+  }
+  if (!total) grid.innerHTML = '<p class="empty-state">Nenhuma vaga configurada.</p>';
+}
+function fecharMapaVagas() {
+  document.getElementById("modal-mapa-vagas").hidden = true;
+}
+document.getElementById("btn-abrir-mapa-vagas").addEventListener("click", abrirMapaVagas);
+document.getElementById("btn-mapa-atualizar").addEventListener("click", abrirMapaVagas);
+document.getElementById("modal-mapa-vagas-fechar").addEventListener("click", fecharMapaVagas);
+document.getElementById("btn-mapa-vagas-fechar").addEventListener("click", fecharMapaVagas);
+document.getElementById("modal-mapa-vagas").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) fecharMapaVagas();
+});
+
+// ---------------------- TICKET PERDIDO ----------------------
+
+document.getElementById("btn-abrir-ticket-perdido").addEventListener("click", async () => {
+  document.getElementById("modal-ticket-perdido").hidden = false;
+  const sugerido = document.getElementById("tp-valor-sugerido");
+  try {
+    const dados = await chamarApi("/tabela-precos");
+    const tabela = dados.tabela_precos || dados.tabela || dados.precos || null;
+    const valor = tabela && (tabela.valor_ticket_perdido > 0) ? tabela.valor_ticket_perdido : null;
+    sugerido.textContent = valor ? `(padrão: ${formatarMoeda(valor)})` : "(configure a tarifa em Configurações)";
+  } catch (erro) {
+    sugerido.textContent = "";
+  }
+});
+document.getElementById("modal-ticket-perdido-fechar").addEventListener("click", () => {
+  document.getElementById("modal-ticket-perdido").hidden = true;
+  document.getElementById("form-ticket-perdido").reset();
+});
+document.getElementById("btn-ticket-perdido-cancelar").addEventListener("click", () => {
+  document.getElementById("modal-ticket-perdido").hidden = true;
+  document.getElementById("form-ticket-perdido").reset();
+});
+document.getElementById("modal-ticket-perdido").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) {
+    document.getElementById("modal-ticket-perdido").hidden = true;
+    document.getElementById("form-ticket-perdido").reset();
+  }
+});
+document.getElementById("form-ticket-perdido").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const payload = {
+    placa: document.getElementById("input-tp-placa").value.trim(),
+    tipo_veiculo: document.getElementById("input-tp-tipo").value,
+    valor: document.getElementById("input-tp-valor").value || null,
+    forma_pagamento: document.getElementById("input-tp-forma").value,
+    observacoes: document.getElementById("input-tp-obs").value.trim(),
+    autorizador: document.getElementById("input-tp-autorizador").value.trim(),
+  };
+  try {
+    const dados = await chamarApi("/ticket-perdido", { method: "POST", body: JSON.stringify(payload) });
+    mostrarToast(dados.mensagem, "success");
+    if (dados.aviso) mostrarToast(dados.aviso, "warning");
+    document.getElementById("modal-ticket-perdido").hidden = true;
+    document.getElementById("form-ticket-perdido").reset();
+    await carregarDashboard();
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+});
+
+// ---------------------- BACKUP ----------------------
+
+document.getElementById("btn-backup").addEventListener("click", () => {
+  window.open("/api/backup", "_blank");
+});
+
+// ---------------------- OCUPACAO + DRE (RELATORIOS) ----------------------
+
+async function carregarOcupacaoDRE() {
+  try {
+    const [ocupacao, dre] = await Promise.all([
+      chamarApi("/relatorio-ocupacao"),
+      chamarApi("/relatorio-dre"),
+    ]);
+
+    document.getElementById("rel-ocu-total").textContent = ocupacao.total_vagas || 0;
+    document.getElementById("rel-ocu-ocupadas").textContent = ocupacao.ocupadas || 0;
+    document.getElementById("rel-ocu-disponiveis").textContent = ocupacao.disponiveis || 0;
+    document.getElementById("rel-ocu-taxa").textContent = `${ocupacao.taxa_ocupacao || 0}%`;
+
+    const porTipo = document.getElementById("rel-ocu-por-tipo");
+    porTipo.innerHTML = "";
+    const tipos = Object.entries(ocupacao.por_tipo || {});
+    if (!tipos.length) {
+      porTipo.innerHTML = '<p class="empty-state">Nenhum dado por tipo.</p>';
+    } else {
+      tipos.forEach(([tipo, valores]) => {
+        const item = document.createElement("div");
+        item.className = "ocupacao-tipo";
+        item.innerHTML = `<span>${tipo}</span><span>${valores.ocupadas}/${valores.vagas || "—"} ocupadas</span>`;
+        porTipo.appendChild(item);
+      });
+    }
+
+    document.getElementById("dre-receita").textContent = formatarMoeda(dre.receita_bruta);
+    document.getElementById("dre-descontos").textContent = formatarMoeda(dre.total_descontos);
+    document.getElementById("dre-cortesias").textContent = dre.total_cortesias || 0;
+    document.getElementById("dre-estornos").textContent = formatarMoeda(dre.total_estornos);
+    document.getElementById("dre-resultado").textContent = formatarMoeda(dre.resultado_liquido);
+  } catch (erro) {
+    // Ocupacao/DRE sao complementares: falha nao bloqueia o relatorio principal
+  }
+}
+
 // ---------------------- INICIALIZACAO ----------------------
 
 // Restaura a view e a aba em que o usuario estava (mantem a pagina ao F5/atualizar)
 const viewSalva = localStorage.getItem("estaciona_view");
 const viewsValidas = [
   "view-visao-geral", "view-empresas", "view-usuarios", "view-clientes", "view-financeiro",
-  "view-caixa", "view-pagamentos", "view-mensalistas", "view-convenios",
+  "view-caixa", "view-pagamentos", "view-formas-pagamento", "view-mensalistas", "view-convenios",
   "view-contas-receber", "view-descontos", "view-cortesias",
   "view-dashboard-financeiro", "view-auditoria", "view-relatorios",
-  "view-configuracoes",
+  "view-nfse", "view-lista-negra", "view-reservas", "view-ocorrencias",
+  "view-notificacoes", "view-configuracoes",
 ];
 if (viewSalva && viewsValidas.includes(viewSalva)) {
   mostrarView(viewSalva);
@@ -3402,3 +4566,14 @@ setInterval(() => {
   carregarDashboard();
   if (!inputBusca.value.trim()) recarregarAbaAtual();
 }, 15000);
+
+// ESC fecha o modal visível (reutiliza o proprio botao de fechar, preservando o estado)
+document.addEventListener("keydown", (evento) => {
+  if (evento.key !== "Escape") return;
+  const overlays = document.querySelectorAll(".modal-overlay:not([hidden])");
+  if (!overlays.length) return;
+  const overlay = overlays[overlays.length - 1];
+  const btnFechar = overlay.querySelector(".modal-close");
+  if (btnFechar) btnFechar.click();
+  else overlay.hidden = true;
+});

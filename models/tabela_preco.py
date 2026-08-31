@@ -45,6 +45,10 @@ class TabelaPreco:
     tarifa_minima: float = 0.0               # valor minimo cobrado
     meia_estadia_minutos: int = 0            # ate quantos minutos vale a meia estadia
     meia_estadia_valor: float = 0.0          # valor da meia estadia
+    # Ticket perdido e pernoite
+    valor_ticket_perdido: float = 0.0        # tarifa cobrada em caso de ticket perdido
+    pernoite_valor: float = 0.0              # tarifa de pernoite (teto/valor fixo apos X horas)
+    pernoite_a_partir_horas: int = 12        # a partir de quantas horas vale a tarifa de pernoite
     # Precos por tipo de veiculo (carro_grande, moto, caminhonete)
     carro_grande_primeira_hora: float = 0.0
     carro_grande_hora_adicional: float = 0.0
@@ -104,6 +108,9 @@ class TabelaPreco:
             tarifa_minima=_f("tarifa_minima"),
             meia_estadia_minutos=_i("meia_estadia_minutos"),
             meia_estadia_valor=_f("meia_estadia_valor"),
+            valor_ticket_perdido=_f("valor_ticket_perdido"),
+            pernoite_valor=_f("pernoite_valor"),
+            pernoite_a_partir_horas=_i("pernoite_a_partir_horas", 12),
             carro_grande_primeira_hora=_f("carro_grande_primeira_hora"),
             carro_grande_hora_adicional=_f("carro_grande_hora_adicional"),
             carro_grande_diaria=_f("carro_grande_diaria"),

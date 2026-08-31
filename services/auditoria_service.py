@@ -40,22 +40,19 @@ class AuditoriaService(BaseSupabaseService):
             logs.append(LogAcesso.from_dict(item))
         return logs
 
-    def _salvar_logs(self) -> None:
+    def _salvar_logs(self, log: LogAcesso) -> None:
+        """Insere um novo log de acesso no Supabase (o banco gera o id).
+
+        Insere apenas o registro novo (em vez de apagar e reinserir tudo),
+        para nao perder logs caso o insert falhe.
+        """
+        item = log.to_dict()
+        item.pop("id", None)
+        item["data"] = self._converter_interna_para_iso(item.get("data"))
         try:
-            supabase.table("logs_acesso").delete().neq("id", -1).execute()
-        except Exception:
-            return
-        if not self._logs:
-            return
-        dados = []
-        for log in self._logs:
-            item = log.to_dict()
-            item["data"] = self._converter_interna_para_iso(item.get("data"))
-            dados.append(item)
-        try:
-            supabase.table("logs_acesso").insert(dados).execute()
-        except Exception:
-            pass
+            supabase.table("logs_acesso").insert(item).execute()
+        except Exception as erro:
+            raise ValueError("Nao foi possivel registrar o log de acesso.") from erro
 
     def registrar_log_acesso(self, usuario: str | None, acao: str, modulo: str, ip: str | None = None) -> LogAcesso:
         """Registra um log de acesso."""
@@ -68,7 +65,7 @@ class AuditoriaService(BaseSupabaseService):
             ip=ip,
         )
         self._logs.append(log)
-        self._salvar_logs()
+        self._salvar_logs(log)
         return log
 
     def listar_logs(self) -> List[LogAcesso]:
