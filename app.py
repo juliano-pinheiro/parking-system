@@ -48,8 +48,8 @@ app = Flask(__name__)
 app.secret_key = "estaciona-parking-secret-key-2026"
 
 # Instancia unica do servico, compartilhada entre todas as requisicoes.
-# Usa os mesmos arquivos JSON (data/tickets.json e data/configuracao.json)
-# que a versao de terminal (main.py) utiliza.
+# Os dados sao persistidos no Supabase (mesmas regras de negocio da
+# versao de terminal main.py).
 servico = EstacionamentoService()
 servico_empresas = EmpresaService()
 servico_usuarios = UsuarioService()

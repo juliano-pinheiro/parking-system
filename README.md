@@ -63,8 +63,7 @@ parking-system/
 ├── static/
 │   ├── css/style.css
 │   └── js/app.js                   # Logica do frontend (consumo da API)
-├── data/                           # Dados locais (JSON legado e backups)
-└── migrar_supabase.py              # Script de migracao JSON -> Supabase
+└── data/                           # Pasta de dados locais (gerada automaticamente)
 ```
 
 ## Requisitos
@@ -101,11 +100,8 @@ parking-system/
 
    > Os scripts usam `IF NOT EXISTS` / `IF EXISTS` e podem ser executados mais de uma vez.
 
-4. **(Opcional) Migrar dados do JSON local para o Supabase**:
-
-   ```bash
-   python migrar_supabase.py
-   ```
+> A migracao dos dados locais (JSON) para o Supabase ja foi concluida: o sistema le e
+> grava tudo diretamente no Supabase. Nao ha mais arquivos JSON em uso.
 
 ## Como executar
 
@@ -150,5 +146,4 @@ VALUES ('Administrador', 'admin@exemplo.com', '<hash-da-senha>', 'admin', TRUE, 
 - Nao e permitido registrar duas entradas abertas para a mesma placa.
 - Ao reduzir o total de vagas, o sistema impede valores menores que a quantidade de
   veiculos ja estacionados.
-- `data/*.json` (tickets, configuracao) sao dados locais do estagio anterior de migracao
-  e ficam fora do controle de versao (`.gitignore`).
+- Os dados sao persistidos no Supabase; a pasta `data/` e ignorada pelo `.gitignore`.
