@@ -119,8 +119,10 @@ function mostrarView(viewId) {
   }
 
   // Fecha sidebar em mobile apos selecao
-  document.getElementById("app-sidebar").classList.remove("open");
-  document.getElementById("sidebar-backdrop").classList.remove("open");
+  const sidebar = document.getElementById("app-sidebar");
+  if (sidebar) sidebar.classList.remove("open");
+  const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+  if (sidebarBackdrop) sidebarBackdrop.classList.remove("open");
 
   if (viewId === "view-visao-geral") {
     carregarDashboard();
@@ -3728,11 +3730,11 @@ async function carregarRelatoriosFinanceiros() {
     const formasGrid = document.getElementById("rel-formas-grid");
     const formasEmpty = document.getElementById("rel-formas-empty");
     const formas = Object.entries(dados.formas_pagamento || {}).filter(([, v]) => v > 0);
-    if (!formas.length) {
-      formasGrid.innerHTML = "";
-      formasEmpty.hidden = false;
-    } else {
-      formasEmpty.hidden = true;
+  if (!formas.length) {
+    if (formasGrid) formasGrid.innerHTML = "";
+    if (formasEmpty) formasEmpty.hidden = false;
+  } else {
+    if (formasEmpty) formasEmpty.hidden = true;
       formasGrid.innerHTML = "";
       formas.forEach(([chave, valor]) => {
         const card = document.createElement("div");
@@ -3747,7 +3749,7 @@ async function carregarRelatoriosFinanceiros() {
     const movEmpty = document.getElementById("rel-movimentacoes-empty");
     corpo.innerHTML = "";
     const lancamentos = dados.lancamentos || [];
-    movEmpty.hidden = lancamentos.length > 0;
+  if (movEmpty) movEmpty.hidden = lancamentos.length > 0;
     lancamentos.forEach((lancamento) => {
       const linha = document.createElement("tr");
       const tipoEntrada = lancamento.tipo === "entrada";
