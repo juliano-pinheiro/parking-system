@@ -44,8 +44,19 @@ persistidos no **Supabase (PostgreSQL)**.
 
 ```
 parking-system/
-├── app.py                          # Interface web (Flask + API REST + SPA)
+├── app.py                          # Interface web (Flask): cria o app e registra os blueprints
 ├── main.py                         # Interface terminal (menu interativo)
+├── services_registry.py            # Instancias dos servicos + helpers (auth, permissoes, serializacao)
+├── routes/                         # Blueprints da API (cada modulo um arquivo)
+│   ├── auth.py                     # Login, sessao, troca de senha, troca de empresa
+│   ├── operacao.py                 # Status, vagas, dashboard, entrada/saida, ticket perdido
+│   ├── financeiro.py               # Financeiro, caixa, pagamentos, estornos, formas
+│   ├── precos.py                   # Configuracoes, tabela de precos, tipos, descontos, cortesias
+│   ├── clientes.py                 # Clientes, mensalistas, convenios, contas a receber
+│   ├── administracao.py            # Usuarios, empresas, perfis, permissoes, auditoria
+│   ├── relatorios.py               # Movimentacao, financeiro (CSV/PDF), ocupacao, DRE
+│   ├── extras.py                   # NFSe, lista negra, reservas, ocorrencias, backup
+│   └── paginas.py                  # Frontend (/) e login (/login)
 ├── supabase_client.py              # Cliente do Supabase (carregado do .env)
 ├── requirements.txt                # Dependencias do projeto (pip install -r)
 ├── models/                         # Modelos de dados (dataclasses)
@@ -63,6 +74,7 @@ parking-system/
 ├── static/
 │   ├── css/style.css
 │   └── js/app.js                   # Logica do frontend (consumo da API)
+├── tests/                          # Testes de integracao (test client do Flask)
 └── data/                           # Pasta de dados locais (gerada automaticamente)
 ```
 
@@ -125,6 +137,18 @@ python main.py
 
 Menu numerico com: Registrar Entrada, Registrar Saida, Controle de Vagas, Relatorio e
 Configuracoes. Usa as mesmas regras de negocio e o mesmo banco (Supabase) da versao web.
+
+## Executar os testes
+
+Os testes usam o test client do Flask (em memoria, sem servidor e sem dados reais):
+
+```bash
+pip install -r requirements.txt   # inclui pytest na secao de desenvolvimento
+python -m pytest tests/ -v
+```
+
+Cobrem paginas publicas, rotas publicas da API, redirecionamentos de autenticacao e a
+protecao das rotas que exigem sessao. Nao dependem de credenciais nem de dados do banco.
 
 ## Primeiro acesso
 
