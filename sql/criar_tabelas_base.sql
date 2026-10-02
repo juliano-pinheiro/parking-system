@@ -73,3 +73,35 @@ CREATE TABLE IF NOT EXISTS public.tickets (
 CREATE INDEX IF NOT EXISTS idx_tickets_placa ON public.tickets(placa);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON public.tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_empresa ON public.tickets(empresa_id);
+
+-- 3. USUARIOS
+CREATE TABLE IF NOT EXISTS public.usuarios (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(200) NOT NULL,
+    email VARCHAR(200) NOT NULL UNIQUE,
+    perfil VARCHAR(50) NOT NULL DEFAULT 'operador',
+    ativo BOOLEAN DEFAULT TRUE,
+    senha TEXT DEFAULT '',
+    trocar_senha_no_proximo_acesso BOOLEAN DEFAULT FALSE,
+    empresa_id INTEGER REFERENCES public.empresas(id),
+    master BOOLEAN DEFAULT FALSE,
+    data_cadastro TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_usuarios_email ON public.usuarios(email);
+CREATE INDEX IF NOT EXISTS idx_usuarios_empresa ON public.usuarios(empresa_id);
+
+-- 4. CLIENTES
+CREATE TABLE IF NOT EXISTS public.clientes (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(200) NOT NULL,
+    telefone VARCHAR(30),
+    placa VARCHAR(20),
+    categoria VARCHAR(50) DEFAULT 'carro_pequeno',
+    data_inicio DATE,
+    data_fim DATE,
+    ativo BOOLEAN DEFAULT TRUE,
+    empresa_id INTEGER REFERENCES public.empresas(id),
+    data_cadastro TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_clientes_placa ON public.clientes(placa);
+CREATE INDEX IF NOT EXISTS idx_clientes_empresa ON public.clientes(empresa_id);

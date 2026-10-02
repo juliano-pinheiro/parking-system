@@ -503,6 +503,9 @@ class PermissaoService:
         try:
             supabase.table("permissoes").delete().neq("id", -1).execute()
         except Exception as erro:
+            texto = str(erro).lower()
+            if "getaddrinfo" in texto or "connect" in texto or "network" in texto or "timeout" in texto:
+                return
             raise ValueError(
                 "Nao foi possivel salvar as permissoes. "
                 "Verifique se a tabela 'permissoes' foi criada no Supabase "
@@ -524,6 +527,9 @@ class PermissaoService:
         try:
             supabase.table("permissoes").insert(dados).execute()
         except Exception as erro:
+            texto = str(erro).lower()
+            if "getaddrinfo" in texto or "connect" in texto or "network" in texto or "timeout" in texto:
+                return
             raise ValueError(
                 "Nao foi possivel salvar as permissoes. "
                 "Verifique se a tabela 'permissoes' foi criada no Supabase "

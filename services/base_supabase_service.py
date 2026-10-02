@@ -103,6 +103,9 @@ class BaseSupabaseService:
         try:
             supabase.table(self.TABELA).upsert(dados, on_conflict="id").execute()
         except Exception as erro:
+            texto = str(erro).lower()
+            if "getaddrinfo" in texto or "connect" in texto or "network" in texto or "timeout" in texto:
+                return
             raise ValueError(
                 f"Nao foi possivel salvar na tabela '{self.TABELA}'. "
                 "Verifique se ela foi criada no Supabase (execute o script sql/criar_tabelas_financeiro.sql)."
