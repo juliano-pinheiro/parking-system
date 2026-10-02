@@ -112,10 +112,10 @@ parking-system/
 O GitHub Pages hospeda apenas arquivos estáticos e **não executa o Flask nem a
 API** usada pelo sistema. Para publicar a aplicação completa, conecte este
 repositório ao Render e crie um Web Service usando o arquivo `render.yaml`.
-Essa configuração usa o plano Starter e um disco persistente para os dados
-JSON locais. Configure `SUPABASE_URL` e `SUPABASE_KEY` como variáveis secretas
-do serviço; `SECRET_KEY` é gerada automaticamente pelo Render. O serviço usa
-um worker Gunicorn para evitar divergência entre estado mantido em memória por
+Essa configuração usa o plano gratuito e persiste os dados da aplicação no
+Supabase. Configure `SUPABASE_URL` e `SUPABASE_KEY` como variáveis secretas do
+serviço; `SECRET_KEY` é gerada automaticamente pelo Render. O serviço usa um
+worker Gunicorn para evitar divergência entre estado mantido em memória por
 workers distintos.
 
 Antes do primeiro deploy, configure o projeto Supabase e aplique as migrações
