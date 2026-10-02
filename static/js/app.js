@@ -1854,8 +1854,6 @@ async function abrirModalTrocarEmpresa() {
   });
 }
 
-document.getElementById("btn-trocar-empresa").addEventListener("click", abrirModalTrocarEmpresa);
-document.getElementById("modal-trocar-empresa-fechar").addEventListener("click", () => {
 document.getElementById("btn-trocar-empresa")?.addEventListener("click", abrirModalTrocarEmpresa);
 document.getElementById("modal-trocar-empresa-fechar")?.addEventListener("click", () => {
   document.getElementById("modal-trocar-empresa").hidden = true;
