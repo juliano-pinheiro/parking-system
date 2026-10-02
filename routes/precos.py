@@ -25,10 +25,13 @@ bp = Blueprint("precos", __name__)
 @bp.route("/api/configuracoes", methods=["GET"])
 def api_obter_configuracoes():
     """Retorna as configuracoes atuais (precos e total de vagas)."""
-    ok, erro = verificar_permissao("configuracoes", "ver")
-    if not ok:
-        return erro
-    return jsonify(config_para_dict())
+    ok_cfg, erro_cfg = verificar_permissao("configuracoes", "ver")
+    if ok_cfg:
+        return jsonify(config_para_dict())
+    ok_op, erro_op = verificar_permissao("operacao", "ver")
+    if ok_op:
+        return jsonify(config_para_dict())
+    return erro_cfg or erro_op
 
 
 def _normalizar_valor_config(campo: str, valor) -> any:
@@ -40,7 +43,10 @@ def _normalizar_valor_config(campo: str, valor) -> any:
         "vagas_carro_grande", "vagas_caminhonete",
     }
     campos_float = {"valor_primeira_hora", "valor_hora_adicional", "valor_mensal"}
-    campos_bool = {"bloquear_sem_vaga", "exigir_observacao"}
+    campos_bool = {
+        "bloquear_sem_vaga", "exigir_observacao",
+        "ticket_exibir_cnpj", "ticket_exibir_contato", "ticket_exibir_codigo_barras",
+    }
     try:
         if campo in campos_int:
             return int(valor)
@@ -68,7 +74,8 @@ def api_atualizar_configuracoes():
         "valor_primeira_hora", "valor_hora_adicional", "valor_mensal",
         "horario_abertura", "horario_fechamento", "cabecalho_ticket",
         "rodape_ticket", "bloquear_sem_vaga", "exigir_observacao",
-        "pix_tipo", "pix_chave",
+        "pix_tipo", "pix_chave", "ticket_formato_papel",
+        "ticket_exibir_cnpj", "ticket_exibir_contato", "ticket_exibir_codigo_barras",
     }
 
     try:

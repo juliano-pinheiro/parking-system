@@ -41,6 +41,10 @@ class Configuracao:
     # Ticket / cupom
     cabecalho_ticket: str = ""
     rodape_ticket: str = ""
+    ticket_exibir_cnpj: bool = True
+    ticket_exibir_contato: bool = True
+    ticket_formato_papel: str = "80mm"
+    ticket_exibir_codigo_barras: bool = True
 
     # Regras de operacao
     bloquear_sem_vaga: bool = False
@@ -82,6 +86,10 @@ class Configuracao:
             horario_fechamento=dados.get("horario_fechamento", ""),
             cabecalho_ticket=dados.get("cabecalho_ticket", ""),
             rodape_ticket=dados.get("rodape_ticket", ""),
+            ticket_exibir_cnpj=dados.get("ticket_exibir_cnpj", True),
+            ticket_exibir_contato=dados.get("ticket_exibir_contato", True),
+            ticket_formato_papel=dados.get("ticket_formato_papel", "80mm"),
+            ticket_exibir_codigo_barras=dados.get("ticket_exibir_codigo_barras", True),
             bloquear_sem_vaga=dados.get("bloquear_sem_vaga", False),
             exigir_observacao=dados.get("exigir_observacao", True),
             pix_tipo=dados.get("pix_tipo", ""),

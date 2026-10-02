@@ -62,6 +62,251 @@ MODULOS = (
     "notificacoes",
 )
 
+CATEGORIAS_MODULOS = [
+    {
+        "id": "operacao",
+        "nome": "Operação de Pátio & Caixa",
+        "descricao": "Controle de pátio, emissão de tickets, cobrança, frente de caixa e movimentações",
+        "modulos": ["operacao", "caixa", "pagamentos", "reservas", "lista_negra", "ocorrencias"],
+    },
+    {
+        "id": "comercial",
+        "nome": "Comercial & Clientes",
+        "descricao": "Gestão de contratos mensalistas, convênios corporativos e avisos de vencimento",
+        "modulos": ["mensalistas", "convenios", "contas_receber", "clientes", "notificacoes"],
+    },
+    {
+        "id": "tarifas",
+        "nome": "Tarifas & Benefícios",
+        "descricao": "Tabelas de cobrança por tipo de veículo, regras de desconto e cortesias",
+        "modulos": ["tabela_precos", "descontos", "cortesias", "formas_pagamento"],
+    },
+    {
+        "id": "financeiro",
+        "nome": "Financeiro & Fiscal",
+        "descricao": "Livro financeiro, indicadores de faturamento, relatórios e emissão de NFSe",
+        "modulos": ["financeiro", "dashboard_financeiro", "relatorios", "nfse"],
+    },
+    {
+        "id": "admin",
+        "nome": "Administração & Segurança",
+        "descricao": "Controle de usuários, trilha de auditoria e configurações gerais do sistema",
+        "modulos": ["usuarios", "auditoria", "configuracoes"],
+    },
+]
+
+ACOES_POR_MODULO = {
+    "operacao": {
+        "nome": "Pátio & Operação",
+        "descricao": "Visualização do pátio, mapa de vagas e registro de fluxo de veículos",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Pátio", "desc": "Consultar veículos no pátio e mapa de vagas"},
+            {"acao": "criar", "nome": "Registrar Entrada", "desc": "Emitir ticket e dar entrada de veículo"},
+            {"acao": "editar", "nome": "Registrar Saída", "desc": "Efetuar saída de veículo e cálculo de estadia"},
+            {"acao": "autorizar", "nome": "Cobrar Ticket Perdido", "desc": "Aplicar tarifa especial de perda de ticket"},
+        ],
+    },
+    "caixa": {
+        "nome": "Caixa & Movimentações",
+        "descricao": "Abertura, fechamento, conferência e controle físico de valores",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Caixa", "desc": "Consultar resumo financeiro e extrato do turno"},
+            {"acao": "criar", "nome": "Abrir Caixa", "desc": "Iniciar expediente com valor inicial de abertura"},
+            {"acao": "editar", "nome": "Sangria e Suprimento", "desc": "Lançar retiradas ou reforços de troco"},
+            {"acao": "fechar_caixa", "nome": "Fechar Caixa", "desc": "Encerrar expediente com conferência cega"},
+        ],
+    },
+    "pagamentos": {
+        "nome": "Pagamentos & Devoluções",
+        "descricao": "Processamento de pagamentos de tickets, cancelamentos e estornos",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Pagamentos", "desc": "Consultar lista de pagamentos do turno"},
+            {"acao": "criar", "nome": "Receber Pagamentos", "desc": "Processar recebimento nas diversas formas"},
+            {"acao": "cancelar", "nome": "Cancelar Pagamento", "desc": "Cancelar recebimento registrado por engano"},
+            {"acao": "estornar", "nome": "Estornar Pagamento", "desc": "Devolver valor ao cliente e debitar do caixa"},
+        ],
+    },
+    "reservas": {
+        "nome": "Reservas de Vagas",
+        "descricao": "Agendamento antecipado de vagas para clientes",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Reservas", "desc": "Consultar agenda e status das reservas"},
+            {"acao": "criar", "nome": "Cadastrar Reserva", "desc": "Agendar vaga para cliente e período específico"},
+            {"acao": "editar", "nome": "Editar / Concluir Reserva", "desc": "Alterar dados ou finalizar reserva"},
+            {"acao": "excluir", "nome": "Cancelar Reserva", "desc": "Remover ou cancelar reserva agendada"},
+        ],
+    },
+    "lista_negra": {
+        "nome": "Lista Negra / Bloqueios",
+        "descricao": "Bloqueio de veículos por sinistro, furto ou inadimplência",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Bloqueios", "desc": "Consultar placas impedidas de acessar o pátio"},
+            {"acao": "criar", "nome": "Bloquear Veículo", "desc": "Inserir placa com motivo do impedimento"},
+            {"acao": "excluir", "nome": "Desbloquear Veículo", "desc": "Liberar acesso de veículo anteriormente bloqueado"},
+        ],
+    },
+    "ocorrencias": {
+        "nome": "Ocorrências & Avarias",
+        "descricao": "Termos de avaria de entrada, batidas, perdas e sinistros",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Ocorrências", "desc": "Consultar avarias e incidentes registrados"},
+            {"acao": "criar", "nome": "Registrar Ocorrência", "desc": "Abrir novo termo de avaria ou sinistro"},
+            {"acao": "editar", "nome": "Atualizar Ocorrência", "desc": "Alterar descrição, autorizador ou desfecho"},
+        ],
+    },
+    "mensalistas": {
+        "nome": "Mensalistas",
+        "descricao": "Contratos de mensalistas, controle de vagas fixas e cobrança",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Mensalistas", "desc": "Consultar contratos e mensalidades ativas"},
+            {"acao": "criar", "nome": "Cadastrar Mensalista", "desc": "Criar novo mensalista e dados do veículo"},
+            {"acao": "editar", "nome": "Editar Mensalista", "desc": "Atualizar dados de contato, plano e placa"},
+            {"acao": "autorizar", "nome": "Baixar Pagamento", "desc": "Registrar o pagamento da mensalidade"},
+            {"acao": "excluir", "nome": "Bloquear / Inativar", "desc": "Suspender acesso de mensalista inadimplente"},
+        ],
+    },
+    "convenios": {
+        "nome": "Convênios",
+        "descricao": "Parcerias com empresas e faturamento periódico agrupado",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Convênios", "desc": "Consultar empresas parceiras cadastradas"},
+            {"acao": "criar", "nome": "Cadastrar Convênio", "desc": "Adicionar nova empresa conveniada"},
+            {"acao": "editar", "nome": "Editar Convênio", "desc": "Atualizar dados ou regras do convênio"},
+            {"acao": "excluir", "nome": "Inativar Convênio", "desc": "Suspender faturamento de empresa conveniada"},
+        ],
+    },
+    "contas_receber": {
+        "nome": "Contas a Receber",
+        "descricao": "Faturas emitidas para empresas e controle de recebíveis",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Faturas", "desc": "Consultar títulos e datas de vencimento"},
+            {"acao": "criar", "nome": "Lançar Cobrança", "desc": "Gerar fatura a receber para empresa conveniada"},
+            {"acao": "editar", "nome": "Liquidar / Baixar", "desc": "Registrar recebimento de fatura faturada"},
+            {"acao": "excluir", "nome": "Cancelar Fatura", "desc": "Cancelar título indevido ou estornado"},
+        ],
+    },
+    "clientes": {
+        "nome": "Base de Clientes",
+        "descricao": "Cadastro central de clientes e histórico de contatos",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Clientes", "desc": "Consultar clientes cadastrados no sistema"},
+            {"acao": "criar", "nome": "Cadastrar Cliente", "desc": "Cadastrar novos clientes avulsos ou mensalistas"},
+            {"acao": "editar", "nome": "Editar Cliente", "desc": "Alterar dados de cadastro e telefone"},
+            {"acao": "excluir", "nome": "Inativar Cliente", "desc": "Inativar registro de cliente da base"},
+        ],
+    },
+    "notificacoes": {
+        "nome": "Avisos de Vencimento",
+        "descricao": "Central de alertas sobre cobranças a vencer e inadimplências",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Avisos", "desc": "Consultar mensalistas em atraso ou a vencer"},
+        ],
+    },
+    "tabela_precos": {
+        "nome": "Tabela de Preços",
+        "descricao": "Tarifas por hora, períodos especiais, pernoite e tolerância",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Preços", "desc": "Consultar valores cobrados por tipo de veículo"},
+            {"acao": "editar", "nome": "Alterar Tarifas", "desc": "Modificar preços, frações e minutos de tolerância"},
+        ],
+    },
+    "descontos": {
+        "nome": "Descontos Comerciais",
+        "descricao": "Percentuais e valores fixos de desconto aplicáveis aos tickets",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Descontos", "desc": "Consultar regras de descontos disponíveis"},
+            {"acao": "criar", "nome": "Criar Regra de Desconto", "desc": "Cadastrar nova modalidade de desconto"},
+            {"acao": "editar", "nome": "Editar Regra", "desc": "Alterar valores ou condições de desconto"},
+            {"acao": "autorizar", "nome": "Aplicar no Checkout", "desc": "Conceder abatimento no encerramento do ticket"},
+        ],
+    },
+    "cortesias": {
+        "nome": "Cortesias (Tarifa Zero)",
+        "descricao": "Liberação sem cobrança para prestadores de serviço ou parceiros",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Cortesias", "desc": "Consultar histórico de veículos liberados sem custo"},
+            {"acao": "criar", "nome": "Emitir Cortesia", "desc": "Liberar saída de veículo com tarifa zero"},
+            {"acao": "autorizar", "nome": "Autorizar Cortesia", "desc": "Aprovar liberação extraordinária de veículo"},
+        ],
+    },
+    "formas_pagamento": {
+        "nome": "Formas de Pagamento",
+        "descricao": "Gestão das modalidades aceitas no PDV (Dinheiro, PIX, Cartão)",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Formas", "desc": "Consultar formas de pagamento habilitadas"},
+            {"acao": "criar", "nome": "Criar Nova Forma", "desc": "Cadastrar nova forma de recebimento no PDV"},
+            {"acao": "editar", "nome": "Ativar / Inativar", "desc": "Modificar ou desativar forma de pagamento"},
+        ],
+    },
+    "financeiro": {
+        "nome": "Livro Financeiro",
+        "descricao": "Lançamentos contábeis de receitas e despesas operacionais",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Lançamentos", "desc": "Consultar extrato de entradas e saídas gerais"},
+            {"acao": "criar", "nome": "Lançar Despesa / Receita", "desc": "Registrar gastos avulsos (manutenção, energia, insumos)"},
+            {"acao": "editar", "nome": "Editar Lançamento", "desc": "Corrigir valores ou descrições de despesas"},
+            {"acao": "excluir", "nome": "Excluir Lançamento", "desc": "Remover lançamento financeiro incorreto"},
+        ],
+    },
+    "dashboard_financeiro": {
+        "nome": "Dashboard Financeiro",
+        "descricao": "Gráficos de faturamento, ticket médio e curvas de horário",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Dashboard", "desc": "Acessar gráficos gerenciais e comparativos"},
+        ],
+    },
+    "relatorios": {
+        "nome": "Relatórios & DRE",
+        "descricao": "Demonstrativo de Resultado do Exercício e exportações",
+        "acoes": [
+            {"acao": "ver", "nome": "Consultar Relatórios", "desc": "Acessar fechamento contábil e apuração de lucro"},
+            {"acao": "criar", "nome": "Exportar Relatórios", "desc": "Baixar relatórios em formato CSV ou para impressão"},
+        ],
+    },
+    "nfse": {
+        "nome": "Notas Fiscais (NFSe)",
+        "descricao": "Emissão e cancelamento de notas fiscais eletrônicas de serviço",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar NFSe", "desc": "Consultar notas fiscais emitidas e canceladas"},
+            {"acao": "criar", "nome": "Emitir NFSe", "desc": "Transmitir e emitir nota fiscal para cliente"},
+            {"acao": "cancelar", "nome": "Cancelar NFSe", "desc": "Solicitar cancelamento de nota fiscal emitida"},
+        ],
+    },
+    "usuarios": {
+        "nome": "Usuários & Equipe",
+        "descricao": "Cadastro de funcionários, operadores e redefinição de senhas",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Usuários", "desc": "Consultar lista de colaboradores cadastrados"},
+            {"acao": "criar", "nome": "Cadastrar Usuário", "desc": "Criar login de acesso para funcionário"},
+            {"acao": "editar", "nome": "Editar e Redefinir Senha", "desc": "Alterar perfil ou resetar senha de usuário"},
+            {"acao": "excluir", "nome": "Inativar Usuário", "desc": "Revogar acesso de colaborador"},
+        ],
+    },
+    "auditoria": {
+        "nome": "Trilha de Auditoria",
+        "descricao": "Rastreamento completo de acessos, logins e alterações de dados",
+        "acoes": [
+            {"acao": "ver", "nome": "Consultar Auditoria", "desc": "Ver logs de quem alterou registros ou fez login"},
+        ],
+    },
+    "configuracoes": {
+        "nome": "Configurações Gerais",
+        "descricao": "Dados da empresa, capacidade de vagas, cupom e chaves",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Parâmetros", "desc": "Consultar informações do estacionamento"},
+            {"acao": "editar", "nome": "Alterar Configurações", "desc": "Atualizar número de vagas, dados fiscais e cupom"},
+        ],
+    },
+    "estornos": {
+        "nome": "Estornos",
+        "descricao": "Registro e histórico de devoluções de valores",
+        "acoes": [
+            {"acao": "ver", "nome": "Visualizar Estornos", "desc": "Consultar histórico de estornos"},
+            {"acao": "estornar", "nome": "Autorizar Estorno", "desc": "Efetuar estorno de valor"},
+        ],
+    },
+}
+
 # Matriz padrao de permissoes: modulo -> perfil -> lista de acoes.
 # Admin sempre tem todas as acoes (tratado no codigo).
 # Aplica-se tambem a perfis personalizados como fallback ate que sejam
@@ -148,7 +393,7 @@ PERMISSOES_PADRAO = {
         "manobrista": [ACAO_VER],
     },
     "financeiro": {
-        "operador": [ACAO_VER, ACAO_CRIAR],
+        "operador": [ACAO_VER],
         "supervisor": [ACAO_VER, ACAO_CRIAR, ACAO_EDITAR, ACAO_EXCLUIR],
         "manobrista": [ACAO_VER],
     },
@@ -454,3 +699,12 @@ class PermissaoService:
                 ))
                 proximo_id += 1
         self._salvar()
+
+    @staticmethod
+    def catalogo_modulos() -> dict:
+        """Retorna o catalogo completo de modulos agrupados e acoes contextuais."""
+        return {
+            "categorias": CATEGORIAS_MODULOS,
+            "acoes_por_modulo": ACOES_POR_MODULO,
+        }
+

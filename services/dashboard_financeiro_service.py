@@ -109,12 +109,25 @@ class DashboardFinanceiroService:
         # Top operadores (por origem/ticket)
         top_operadores = sorted(por_operador.items(), key=lambda x: x[1], reverse=True)[:5]
 
+        # Horário de pico (hoje)
+        pico_horario = None
+        if por_horario:
+            hora_max, val_max = max(por_horario.items(), key=lambda x: x[1])
+            if val_max > 0:
+                pico_horario = {"hora": hora_max, "valor": round(val_max, 2)}
+
+        # Media diaria no mes atual
+        dias_corridos = max(1, agora.day)
+        media_diaria_mes = round(receita_mes / dias_corridos, 2)
+
         return {
             "receita_dia": receita_dia,
             "receita_mes": receita_mes,
             "receita_ano": receita_ano,
             "quantidade_tickets": quantidade_tickets,
             "ticket_medio": ticket_medio,
+            "media_diaria_mes": media_diaria_mes,
+            "pico_horario": pico_horario,
             "receita_por_forma": {k: round(v, 2) for k, v in por_forma.items()},
             "receita_por_operador": {k: round(v, 2) for k, v in por_operador.items()},
             "receita_por_horario": {k: round(v, 2) for k, v in sorted(por_horario.items())},

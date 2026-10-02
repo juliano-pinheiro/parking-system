@@ -35,6 +35,8 @@ class RelatorioService:
         estorno_service=None,
         mensalista_service=None,
         conta_receber_service=None,
+        pagamento_service=None,
+        forma_pagamento_service=None,
     ):
         self._financeiro = financeiro_service
         self._nome_estacionamento = nome_estacionamento or "Estacionamento"
@@ -44,6 +46,8 @@ class RelatorioService:
         self._estornos = estorno_service
         self._mensalistas = mensalista_service
         self._contas_receber = conta_receber_service
+        self._pagamentos = pagamento_service
+        self._formas_pagamento = forma_pagamento_service
 
     def _lancamentos(self) -> List:
         if self._financeiro is None:
@@ -391,8 +395,10 @@ class RelatorioService:
         if self._descontos is not None:
             try:
                 for desconto in self._descontos.listar():
-                    if hasattr(desconto, "valor") and desconto.valor:
-                        total_descontos += float(desconto.valor or 0)
+                    data = self._parse(getattr(desconto, "criado_em", None))
+                    if data and inicio <= data <= fim:
+                        if hasattr(desconto, "valor") and desconto.valor:
+                            total_descontos += float(desconto.valor or 0)
             except Exception:
                 pass
 
@@ -427,3 +433,205 @@ class RelatorioService:
             "total_estornos": round(total_estornos, 2),
             "resultado_liquido": resultado,
         }
+
+    # ==================================================================
+    # RELATORIO: PAGAMENTOS POR FORMA DE PAGAMENTO
+    # ==================================================================
+
+    def _parse_data_filtro(self, data_str: str, eh_fim: bool = False) -> datetime | None:
+        """Converte strings de filtro (YYYY-MM-DD ou DD/MM/YYYY) para datetime."""
+        if not data_str:
+            return None
+        s = str(data_str).strip()
+        formatos = [
+            "%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
+            "%d/%m/%Y", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M",
+        ]
+        for f in formatos:
+            try:
+                dt = datetime.strptime(s, f)
+                if len(s) == 10:
+                    if eh_fim:
+                        return dt.replace(hour=23, minute=59, second=59)
+                    else:
+                        return dt.replace(hour=0, minute=0, second=0)
+                return dt
+            except (ValueError, TypeError):
+                continue
+        return self._parse(data_str)
+
+    def relatorio_pagamentos_por_forma(
+        self,
+        inicio: str | None = None,
+        fim: str | None = None,
+        forma_pagamento: str | None = None,
+        status: str = "ativo",
+    ) -> dict:
+        """
+        Extrai e totaliza pagamentos por forma de pagamento no periodo filtrado.
+        Retorna receita total, quantidade, ticket medio, resumo agrupado e lista de transacoes.
+        """
+        dt_inicio = self._parse_data_filtro(inicio, eh_fim=False) if inicio else None
+        dt_fim = self._parse_data_filtro(fim, eh_fim=True) if fim else None
+        forma_filtro = (forma_pagamento or "").strip().lower()
+
+        # Obtem o mapa de formas cadastradas (codigo -> nome legivel)
+        mapa_nomes = {}
+        if self._formas_pagamento:
+            try:
+                for f in self._formas_pagamento.listar():
+                    mapa_nomes[f.codigo.lower()] = f.nome
+            except Exception:
+                pass
+
+        pagamentos = self._pagamentos.listar() if self._pagamentos else []
+
+        transacoes_filtradas = []
+        resumo_dict = defaultdict(lambda: {"quantidade": 0, "receita": 0.0})
+
+        receita_total = 0.0
+        quantidade_total = 0
+
+        for p in pagamentos:
+            # Filtro de status ('ativo', 'estornado', 'cancelado', ou 'todos')
+            p_status = (getattr(p, "status", "") or "").lower()
+            if status and status.lower() != "todos" and p_status != status.lower():
+                continue
+
+            # Filtro de forma de pagamento
+            p_forma = (getattr(p, "forma_pagamento", "") or "").strip().lower()
+            if forma_filtro and forma_filtro != "todas" and p_forma != forma_filtro:
+                continue
+
+            # Filtro de data
+            data_val = getattr(p, "data", None)
+            dt_pag = self._parse(data_val)
+            if dt_pag:
+                if dt_inicio and dt_pag < dt_inicio:
+                    continue
+                if dt_fim and dt_pag > dt_fim:
+                    continue
+            elif dt_inicio or dt_fim:
+                continue
+
+            valor = round(float(getattr(p, "valor", 0.0) or 0.0), 2)
+            receita_total += valor
+            quantidade_total += 1
+
+            resumo_dict[p_forma]["quantidade"] += 1
+            resumo_dict[p_forma]["receita"] += valor
+
+            nome_forma = mapa_nomes.get(p_forma, p_forma.replace("_", " ").title())
+
+            transacoes_filtradas.append({
+                "id": p.id,
+                "ticket_numero": getattr(p, "ticket_numero", None),
+                "valor": valor,
+                "forma_pagamento": p_forma,
+                "forma_pagamento_nome": nome_forma,
+                "data": str(data_val or ""),
+                "operador": getattr(p, "operador", None) or "—",
+                "status": getattr(p, "status", "ativo"),
+                "caixa_id": getattr(p, "caixa_id", None),
+            })
+
+        # Ordena transacoes da mais recente para a mais antiga
+        def _chave_ordenacao(item):
+            d = self._parse(item["data"])
+            return d if d else datetime.min
+
+        transacoes_filtradas.sort(key=_chave_ordenacao, reverse=True)
+
+        # Monta o resumo agrupado por forma
+        resumo_formas = []
+        for codigo, dados in resumo_dict.items():
+            nome = mapa_nomes.get(codigo, codigo.replace("_", " ").title())
+            rec = round(dados["receita"], 2)
+            pct = round((rec / receita_total * 100), 1) if receita_total > 0 else 0.0
+            ticket_medio_forma = round(rec / dados["quantidade"], 2) if dados["quantidade"] > 0 else 0.0
+            resumo_formas.append({
+                "codigo": codigo,
+                "nome": nome,
+                "quantidade": dados["quantidade"],
+                "receita": rec,
+                "percentual": pct,
+                "ticket_medio": ticket_medio_forma,
+            })
+
+        # Ordena formas por maior receita decrescente
+        resumo_formas.sort(key=lambda x: x["receita"], reverse=True)
+
+        ticket_medio_geral = round(receita_total / quantidade_total, 2) if quantidade_total > 0 else 0.0
+
+        return {
+            "receita_total": round(receita_total, 2),
+            "quantidade_total": quantidade_total,
+            "ticket_medio": ticket_medio_geral,
+            "filtros": {
+                "inicio": inicio or "",
+                "fim": fim or "",
+                "forma_pagamento": forma_filtro or "todas",
+                "status": status or "ativo",
+            },
+            "resumo_formas": resumo_formas,
+            "transacoes": transacoes_filtradas,
+        }
+
+    def exportar_pagamentos_csv(
+        self,
+        inicio: str | None = None,
+        fim: str | None = None,
+        forma_pagamento: str | None = None,
+        status: str = "ativo",
+    ) -> str:
+        """Gera o arquivo CSV com cabecalho, resumo consolidado e linhas analiticas."""
+        dados = self.relatorio_pagamentos_por_forma(inicio, fim, forma_pagamento, status)
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
+
+        writer.writerow(["RELATORIO DE PAGAMENTOS POR FORMA DE PAGAMENTO"])
+        writer.writerow(["Estacionamento", self._nome_estacionamento])
+        writer.writerow(["Periodo", f"{inicio or 'Inicio'} ate {fim or 'Hoje'}"])
+        writer.writerow(["Forma de Pagamento", forma_pagamento or "Todas"])
+        writer.writerow(["Status", (status or "Ativo").capitalize()])
+        writer.writerow(["Gerado em", datetime.now().strftime("%d/%m/%Y %H:%M:%S")])
+        writer.writerow([])
+
+        # Bloco de Totais
+        writer.writerow(["RESUMO GERAL"])
+        writer.writerow(["Receita Total (R$)", f"{dados['receita_total']:.2f}".replace(".", ",")])
+        writer.writerow(["Total de Pagamentos", dados["quantidade_total"]])
+        writer.writerow(["Ticket Medio (R$)", f"{dados['ticket_medio']:.2f}".replace(".", ",")])
+        writer.writerow([])
+
+        # Bloco de Formas
+        writer.writerow(["DISTRIBUICAO POR FORMA DE PAGAMENTO"])
+        writer.writerow(["Forma de Pagamento", "Quantidade", "Receita (R$)", "Participacao (%)", "Ticket Medio (R$)"])
+        for rf in dados["resumo_formas"]:
+            writer.writerow([
+                rf["nome"],
+                rf["quantidade"],
+                f"{rf['receita']:.2f}".replace(".", ","),
+                f"{rf['percentual']:.1f}%".replace(".", ","),
+                f"{rf['ticket_medio']:.2f}".replace(".", ","),
+            ])
+        writer.writerow([])
+
+        # Bloco Analitico
+        writer.writerow(["DETALHAMENTO DE TRANSACOES"])
+        writer.writerow(["Ticket / Ref", "Data / Hora", "Operador", "Forma de Pagamento", "Valor (R$)", "Status"])
+        for t in dados["transacoes"]:
+            data_formatada = t["data"]
+            dt = self._parse(t["data"])
+            if dt:
+                data_formatada = dt.strftime("%d/%m/%Y %H:%M:%S")
+            writer.writerow([
+                f"#{t['ticket_numero']}" if t.get("ticket_numero") else "—",
+                data_formatada,
+                t.get("operador") or "—",
+                t.get("forma_pagamento_nome", ""),
+                f"{t['valor']:.2f}".replace(".", ","),
+                (t.get("status") or "").capitalize(),
+            ])
+
+        return output.getvalue()

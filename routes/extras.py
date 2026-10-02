@@ -301,8 +301,8 @@ def api_notificacoes_vencimento():
 @bp.route("/api/backup", methods=["GET"])
 def api_backup():
     """Exporta o backup completo (JSON) da empresa ativa.
-    Restrito a quem pode editar usuarios (na pratica, admin)."""
-    ok, erro = verificar_permissao("usuarios", "editar")
+    Restrito a quem pode alterar as configuracoes da empresa."""
+    ok, erro = verificar_permissao("configuracoes", "editar")
     if not ok:
         return erro
     backup = servico_backup.gerar(nome_estacionamento=servico.config.nome_estacionamento)

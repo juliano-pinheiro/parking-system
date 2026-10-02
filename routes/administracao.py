@@ -208,6 +208,17 @@ def api_criar_empresa():
     except ValueError as erro:
         return jsonify({"erro": str(erro)}), 400
 
+    # Garante a configuracao inicial com o nome e CNPJ da nova empresa
+    try:
+        from services_registry import servico
+        servico.persistencia.garantir_configuracao(
+            empresa_id=empresa.id,
+            nome_estacionamento=empresa.nome_fantasia,
+            cnpj=empresa.cnpj,
+        )
+    except Exception:
+        pass
+
     servico_auditoria.registrar("empresas", empresa.id, "criar", None, empresa.cnpj, usuario_logado().nome)
     return jsonify({"mensagem": "Empresa cadastrada com sucesso!", "empresa": empresa_para_dict(empresa)}), 201
 
@@ -228,15 +239,15 @@ def api_obter_empresa(id_empresa: int):
 
 @bp.route("/api/empresas/<int:id_empresa>", methods=["PUT"])
 def api_atualizar_empresa(id_empresa: int):
-    """Atualiza os dados de uma empresa (somente master)."""
+    """Atualiza os dados de uma empresa existente (somente master)."""
     ok, erro = apenas_master()
     if not ok:
         return erro
     dados = request.get_json(silent=True) or {}
 
     campos = {
-        "cnpj", "razao_social", "nome_fantasia", "telefone", "email",
-        "endereco", "cidade", "estado", "cep", "ativo",
+        "cnpj", "razao_social", "nome_fantasia", "telefone",
+        "email", "endereco", "cidade", "estado", "cep", "ativo",
     }
     atualizacoes = {k: v for k, v in dados.items() if k in campos}
 
@@ -247,6 +258,16 @@ def api_atualizar_empresa(id_empresa: int):
 
     if empresa is None:
         return jsonify({"erro": "Empresa nao encontrada."}), 404
+
+    # Sincroniza o nome do estacionamento na sessao ativa se for a mesma empresa
+    if session.get("empresa_id") == empresa.id and "nome_fantasia" in atualizacoes:
+        try:
+            from services_registry import servico
+            from supabase_client import supabase
+            servico.config.nome_estacionamento = empresa.nome_fantasia
+            supabase.table("configuracao").update({"nome_estacionamento": empresa.nome_fantasia}).eq("empresa_id", empresa.id).execute()
+        except Exception:
+            pass
 
     servico_auditoria.registrar("empresas", empresa.id, "atualizar", None, empresa.cnpj, usuario_logado().nome)
     return jsonify({"mensagem": "Empresa atualizada com sucesso!", "empresa": empresa_para_dict(empresa)})
@@ -276,11 +297,14 @@ def api_obter_permissoes():
     """
     if usuario_logado() is None:
         return jsonify({"erro": "Nao autenticado."}), 401
+    catalogo = servico_permissao.catalogo_modulos()
     return jsonify({
         "matriz": servico_permissao.matriz(),
         "perfis": list(servico_permissao.perfis_validos()),
         "modulos": list(servico_permissao.modulos()),
         "acoes": list(servico_permissao.acoes_validas()),
+        "categorias": catalogo.get("categorias", []),
+        "acoes_por_modulo": catalogo.get("acoes_por_modulo", {}),
         "perfis_detalhes": [
             {
                 "id": p.id,

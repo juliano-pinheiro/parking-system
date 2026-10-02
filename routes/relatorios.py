@@ -24,6 +24,10 @@ def api_relatorio():
     Filtros: 'data' (dd/mm/aaaa) ou 'periodo' (diario|semanal|mensal).
     Retorna tambem o faturamento por forma de pagamento.
     """
+    ok, erro = verificar_permissao("relatorios", "ver")
+    if not ok:
+        return erro
+
     data = request.args.get("data", "").strip() or None
     periodo = request.args.get("periodo", "").strip() or None
 
@@ -114,3 +118,50 @@ def api_relatorio_dre():
     if not ok:
         return erro
     return jsonify(servico_relatorio.relatorio_dre())
+
+
+@bp.route("/api/relatorio-pagamentos", methods=["GET"])
+def api_relatorio_pagamentos():
+    """Retorna o relatorio de pagamentos filtrado por periodo, forma de pagamento e status."""
+    ok, erro = verificar_permissao("relatorios", "ver")
+    if not ok:
+        return erro
+
+    inicio = request.args.get("data_inicio", "").strip() or None
+    fim = request.args.get("data_fim", "").strip() or None
+    forma = request.args.get("forma_pagamento", "").strip() or None
+    status = request.args.get("status", "ativo").strip() or "ativo"
+
+    dados = servico_relatorio.relatorio_pagamentos_por_forma(
+        inicio=inicio,
+        fim=fim,
+        forma_pagamento=forma,
+        status=status,
+    )
+    return jsonify(dados)
+
+
+@bp.route("/api/relatorio-pagamentos/exportar", methods=["GET"])
+def api_relatorio_pagamentos_exportar():
+    """Exporta o relatorio de pagamentos em CSV conforme os filtros aplicados."""
+    ok, erro = verificar_permissao("relatorios", "ver")
+    if not ok:
+        return erro
+
+    inicio = request.args.get("data_inicio", "").strip() or None
+    fim = request.args.get("data_fim", "").strip() or None
+    forma = request.args.get("forma_pagamento", "").strip() or None
+    status = request.args.get("status", "ativo").strip() or "ativo"
+
+    csv_texto = servico_relatorio.exportar_pagamentos_csv(
+        inicio=inicio,
+        fim=fim,
+        forma_pagamento=forma,
+        status=status,
+    )
+    nome_arquivo = f"relatorio_pagamentos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(
+        csv_texto,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={nome_arquivo}"},
+    )

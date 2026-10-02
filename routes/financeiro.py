@@ -274,8 +274,23 @@ def api_suprimento(id_caixa: int):
 @bp.route("/api/caixa/<int:id_caixa>/movimentacoes", methods=["GET"])
 def api_movimentacoes_caixa(id_caixa: int):
     """Retorna as movimentacoes de um caixa."""
+    ok, erro = verificar_permissao("caixa", "ver")
+    if not ok:
+        return erro
     movs = servico_caixa.movimentacoes_do_caixa(id_caixa)
     return jsonify({"movimentacoes": [m.to_dict() for m in movs]})
+
+
+@bp.route("/api/caixa/<int:id_caixa>/resumo", methods=["GET"])
+def api_resumo_caixa(id_caixa: int):
+    """Retorna o resumo consolidado e discriminado do caixa."""
+    ok, erro = verificar_permissao("caixa", "ver")
+    if not ok:
+        return erro
+    resumo = servico_caixa.resumo_detalhado(id_caixa)
+    if not resumo:
+        return jsonify({"erro": "Caixa nao encontrado."}), 404
+    return jsonify({"resumo": resumo})
 
 
 # ---------------------- PAGAMENTOS ----------------------
@@ -292,7 +307,7 @@ def api_listar_pagamentos():
 
 @bp.route("/api/pagamentos/<int:id_pagamento>/cancelar", methods=["POST"])
 def api_cancelar_pagamento(id_pagamento: int):
-    """Cancela (logicamente) um pagamento."""
+    """Cancela (logicamente) um pagamento e sincroniza caixa e financeiro."""
     ok, erro = verificar_permissao("pagamentos", "cancelar")
     if not ok:
         return erro
@@ -305,6 +320,31 @@ def api_cancelar_pagamento(id_pagamento: int):
         return jsonify({"erro": str(erro)}), 400
     if pagamento is None:
         return jsonify({"erro": "Pagamento nao encontrado."}), 404
+
+    # Sincroniza com caixa e financeiro
+    if pagamento.caixa_id:
+        try:
+            servico_caixa.estorno(
+                id_caixa=pagamento.caixa_id,
+                valor=pagamento.valor,
+                motivo=f"Cancelamento de pagamento: {motivo}",
+                forma_pagamento=pagamento.forma_pagamento or "dinheiro",
+                usuario=autorizador,
+            )
+        except Exception:
+            pass
+
+    try:
+        servico_financeiro.criar(
+            tipo="saida",
+            descricao=f"Cancelamento Pagamento #{pagamento.id}: {motivo}",
+            valor=pagamento.valor,
+            forma_pagamento=pagamento.forma_pagamento or "dinheiro",
+            origem="cancelamento",
+        )
+    except Exception:
+        pass
+
     from services_registry import servico_auditoria
     servico_auditoria.registrar("pagamentos", pagamento.id, "status", "ativo", "cancelado", autorizador)
     return jsonify({"mensagem": "Pagamento cancelado!", "pagamento": pagamento.to_dict()})
@@ -312,7 +352,7 @@ def api_cancelar_pagamento(id_pagamento: int):
 
 @bp.route("/api/pagamentos/<int:id_pagamento>/estornar", methods=["POST"])
 def api_estornar_pagamento(id_pagamento: int):
-    """Estorna (logicamente) um pagamento e registra o estorno."""
+    """Estorna (logicamente) um pagamento e registra o estorno no caixa e financeiro."""
     ok, erro = verificar_permissao("pagamentos", "estornar")
     if not ok:
         return erro
@@ -325,6 +365,8 @@ def api_estornar_pagamento(id_pagamento: int):
         return jsonify({"erro": str(erro)}), 400
     if pagamento is None:
         return jsonify({"erro": "Pagamento nao encontrado."}), 404
+
+    # Registra estorno na tabela dedicada de estornos
     servico_estornos.criar(
         pagamento_id=pagamento.id,
         valor=pagamento.valor,
@@ -332,6 +374,32 @@ def api_estornar_pagamento(id_pagamento: int):
         forma_pagamento=pagamento.forma_pagamento,
         autorizador=autorizador,
     )
+
+    # Sincroniza débito com o caixa correspondente
+    if pagamento.caixa_id:
+        try:
+            servico_caixa.estorno(
+                id_caixa=pagamento.caixa_id,
+                valor=pagamento.valor,
+                motivo=f"Estorno: {motivo}",
+                forma_pagamento=pagamento.forma_pagamento or "dinheiro",
+                usuario=autorizador,
+            )
+        except Exception:
+            pass
+
+    # Sincroniza débito com o relatório financeiro
+    try:
+        servico_financeiro.criar(
+            tipo="saida",
+            descricao=f"Estorno Pagamento #{pagamento.id}: {motivo}",
+            valor=pagamento.valor,
+            forma_pagamento=pagamento.forma_pagamento or "dinheiro",
+            origem="estorno",
+        )
+    except Exception:
+        pass
+
     from services_registry import servico_auditoria
     servico_auditoria.registrar("pagamentos", pagamento.id, "status", "ativo", "estornado", autorizador)
     return jsonify({"mensagem": "Pagamento estornado!", "pagamento": pagamento.to_dict()})
@@ -388,6 +456,9 @@ def api_atualizar_forma_pagamento(id_forma: int):
 @bp.route("/api/estornos", methods=["GET"])
 def api_listar_estornos():
     """Retorna a lista de estornos."""
+    ok, erro = verificar_permissao("pagamentos", "ver")
+    if not ok:
+        return erro
     estornos = servico_estornos.listar()
     return jsonify({"estornos": [e.to_dict() for e in estornos]})
 

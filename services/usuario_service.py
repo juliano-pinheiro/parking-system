@@ -8,7 +8,7 @@ diretamente no Supabase.
 from typing import List, Optional
 from datetime import datetime
 
-from models.usuario import Usuario, hash_senha
+from models.usuario import Usuario, hash_senha, verificar_senha
 from services.perfil_service import PerfilService
 from supabase_client import supabase
 
@@ -69,12 +69,9 @@ class UsuarioService:
 
     def _salvar(self) -> None:
         """
-        Sincroniza os usuarios em memoria com o Supabase.
+        Sincroniza os usuarios em memoria com o Supabase via upsert por id.
+        Nunca remove os registros em lote para evitar perda de dados.
         """
-
-        # Remove os registros atuais
-        supabase.table("usuarios").delete().neq("id", -1).execute()
-
         if not self.usuarios:
             return
 
@@ -85,7 +82,7 @@ class UsuarioService:
             item["data_cadastro"] = self._converter_interna_para_iso(item.get("data_cadastro"))
             dados.append(item)
 
-        supabase.table("usuarios").insert(dados).execute()
+        supabase.table("usuarios").upsert(dados, on_conflict="id").execute()
 
     # =====================================================
     # CONVERSAO DE DATAS
@@ -366,7 +363,7 @@ class UsuarioService:
             if usuario.email.strip().lower() == email:
                 if not usuario.ativo:
                     return None
-                if usuario.senha and usuario.senha == hash_senha(senha):
+                if usuario.senha and verificar_senha(senha, usuario.senha):
                     return usuario
                 # Usuarios sem senha definida nao podem autenticar
                 return None
@@ -386,7 +383,7 @@ class UsuarioService:
         if usuario is None:
             return None
 
-        if not usuario.senha or usuario.senha != hash_senha(senha_atual):
+        if not usuario.senha or not verificar_senha(senha_atual, usuario.senha):
             raise ValueError("Senha atual incorreta.")
 
         nova_senha = nova_senha or ""

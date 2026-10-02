@@ -15,21 +15,20 @@ import app as appmod
 client = appmod.app.test_client()
 
 ROTAS_PUBLICAS = [
-    "/api/estornos",
     "/api/formas-pagamento",
     "/api/tabela-precos",
-    "/api/relatorio",
 ]
 
 ROTAS_PROTEGIDAS = [
     "/api/status", "/api/vagas", "/api/dashboard", "/api/historico", "/api/buscar",
-    "/api/financeiro", "/api/caixa", "/api/pagamentos", "/api/dashboard-financeiro",
+    "/api/financeiro", "/api/caixa", "/api/caixa/1/resumo", "/api/pagamentos", "/api/dashboard-financeiro",
     "/api/configuracoes", "/api/tipos-veiculo", "/api/descontos", "/api/cortesias",
     "/api/clientes", "/api/mensalistas", "/api/convenios", "/api/contas-receber",
     "/api/usuarios", "/api/empresas", "/api/perfis", "/api/auditoria", "/api/logs-acesso",
     "/api/relatorio-financeiro", "/api/relatorio-ocupacao", "/api/relatorio-dre",
     "/api/nfse", "/api/lista-negra", "/api/reservas", "/api/ocorrencias",
     "/api/notificacoes-vencimento", "/api/backup", "/api/empresa/atual",
+    "/api/estornos", "/api/relatorio",
 ]
 
 

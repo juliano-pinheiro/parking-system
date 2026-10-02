@@ -32,14 +32,14 @@ def api_login():
     if usuario is None:
         return jsonify({"erro": "E-mail ou senha invalidos, ou usuario inativo."}), 401
 
+    eh_master = bool(usuario.master or (usuario.perfil == "admin" and not usuario.empresa_id))
     session["usuario_id"] = usuario.id
     session["usuario_nome"] = usuario.nome
     session["usuario_perfil"] = usuario.perfil
-    session["usuario_master"] = usuario.master or usuario.perfil == "admin"
+    session["usuario_master"] = eh_master
 
     # Redireciona automaticamente para a empresa vinculada ao usuario
     empresa_redirect = None
-    eh_master = session["usuario_master"]
     if eh_master:
         # Master: fica na primeira empresa ativa (ou None se nao houver)
         empresas_ativas = servico_empresas.listar(ativos=True)

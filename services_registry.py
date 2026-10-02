@@ -42,7 +42,8 @@ from services.notificacao_service import NotificacaoService
 # INSTANCIAS DOS SERVICOS
 # ------------------------------------------------------------------
 
-servico = EstacionamentoService()
+servico_tabela_precos = TabelaPrecoService()
+servico = EstacionamentoService(tabela_preco_service=servico_tabela_precos)
 servico_empresas = EmpresaService()
 servico_usuarios = UsuarioService()
 servico_clientes = ClienteService()
@@ -53,7 +54,6 @@ servico_pagamentos = PagamentoService(
     financeiro_service=servico_financeiro,
 )
 servico_formas_pagamento = FormaPagamentoService()
-servico_tabela_precos = TabelaPrecoService()
 servico_tipos_veiculo = TipoVeiculoService()
 servico_tabela_precos.definir_tipos_personalizados(servico_tipos_veiculo.listar(somente_ativos=True))
 servico_descontos = DescontoService()
@@ -78,6 +78,8 @@ servico_relatorio = RelatorioService(
     estorno_service=servico_estornos,
     mensalista_service=servico_mensalistas,
     conta_receber_service=servico_contas_receber,
+    pagamento_service=servico_pagamentos,
+    forma_pagamento_service=servico_formas_pagamento,
 )
 servico_nfse = NfseService()
 servico_lista_negra = ListaNegraService()
@@ -127,6 +129,7 @@ def recarregar_services_por_empresa(empresa_id=None):
     servico_tabela_precos.definir_tipos_personalizados(
         servico_tipos_veiculo.listar(somente_ativos=True)
     )
+    servico.tabela_preco_service = servico_tabela_precos
     servico_descontos.recarregar(eid)
     servico_cortesias.recarregar(eid)
     servico_mensalistas.recarregar(eid)
@@ -140,6 +143,9 @@ def recarregar_services_por_empresa(empresa_id=None):
     servico_ocorrencias.recarregar(eid)
     servico_notificacao._mensalistas = servico_mensalistas
     servico_notificacao._nome_estacionamento = servico.config.nome_estacionamento
+    servico_relatorio._pagamentos = servico_pagamentos
+    servico_relatorio._formas_pagamento = servico_formas_pagamento
+    servico_relatorio._nome_estacionamento = servico.config.nome_estacionamento
 
 
 # ------------------------------------------------------------------
@@ -176,7 +182,7 @@ def apenas_master():
     usuario = usuario_logado()
     if usuario is None:
         return False, (jsonify({"erro": "Nao autenticado."}), 401)
-    eh_master = usuario.master or usuario.perfil == "admin"
+    eh_master = bool(usuario.master or (usuario.perfil == "admin" and not usuario.empresa_id))
     if not eh_master:
         return False, (jsonify({"erro": "Somente o usuario master pode realizar esta acao."}), 403)
     return True, None
@@ -206,6 +212,16 @@ def ticket_para_dict(ticket) -> dict:
     """Serializa um Ticket para um dicionario simples (JSON-friendly)."""
     entrada = ticket.entrada or ""
     saida = ticket.saida or ""
+
+    # Se o ticket estiver aberto, calcula o valor acumulado em tempo real
+    valor_estimado = ticket.valor
+    if valor_estimado is None and ticket.status == "ABERTO" and entrada:
+        try:
+            agora_str = datetime.now().strftime(FORMATO_DATA)
+            valor_estimado = servico.calcular_valor(entrada, agora_str, ticket.tipo_veiculo)
+        except Exception:
+            valor_estimado = 0.0
+
     return {
         "numero": ticket.numero,
         "placa": ticket.placa,
@@ -218,6 +234,7 @@ def ticket_para_dict(ticket) -> dict:
         "saida_hora": saida.split(" ")[1] if " " in saida else "",
         "valor": ticket.valor,
         "valor_pago": ticket.valor,
+        "valor_estimado": valor_estimado,
         "status": ticket.status,
         "tipo_veiculo": ticket.tipo_veiculo,
         "observacoes": ticket.observacoes,
@@ -229,10 +246,22 @@ def ticket_para_dict(ticket) -> dict:
 def config_para_dict() -> dict:
     """Serializa a configuracao atual (mais os contadores de vagas) em dict."""
     cfg = servico.config
+    nome = cfg.nome_estacionamento
+    cnpj = cfg.cnpj
+    if servico.empresa_id:
+        try:
+            emp = servico_empresas.buscar_por_id(servico.empresa_id)
+            if emp:
+                if not nome or nome == "Estaciona Parking":
+                    nome = emp.nome_fantasia or emp.razao_social or nome
+                if not cnpj:
+                    cnpj = emp.cnpj or cnpj
+        except Exception:
+            pass
     return {
         # Identificacao
-        "nome_estacionamento": cfg.nome_estacionamento,
-        "cnpj": cfg.cnpj,
+        "nome_estacionamento": nome,
+        "cnpj": cnpj,
         "telefone": cfg.telefone,
         "endereco": cfg.endereco,
         "cidade": cfg.cidade,
@@ -256,6 +285,10 @@ def config_para_dict() -> dict:
         # Ticket
         "cabecalho_ticket": cfg.cabecalho_ticket,
         "rodape_ticket": cfg.rodape_ticket,
+        "ticket_formato_papel": getattr(cfg, "ticket_formato_papel", "80mm"),
+        "ticket_exibir_cnpj": getattr(cfg, "ticket_exibir_cnpj", True),
+        "ticket_exibir_contato": getattr(cfg, "ticket_exibir_contato", True),
+        "ticket_exibir_codigo_barras": getattr(cfg, "ticket_exibir_codigo_barras", True),
         # Regras
         "bloquear_sem_vaga": cfg.bloquear_sem_vaga,
         "exigir_observacao": cfg.exigir_observacao,

@@ -61,11 +61,32 @@ class CaixaService(BaseSupabaseService):
             movs.append(MovimentacaoCaixa.from_dict(item))
         return movs
 
-    def _salvar_movimentacoes(self) -> None:
+    def _inserir_movimentacao(self, mov: MovimentacaoCaixa) -> None:
+        """Insere pontualmente uma movimentacao no Supabase sem apagar as demais."""
+        item = mov.to_dict()
+        item["data"] = self._converter_interna_para_iso(item.get("data"))
+        item["criado_em"] = self._converter_interna_para_iso(item.get("criado_em"))
+        eid = getattr(self, "_empresa_id", None)
+        if eid is not None:
+            item["empresa_id"] = eid
         try:
-            supabase.table("movimentacoes_caixa").delete().neq("id", -1).execute()
-        except Exception:
-            return
+            resposta = supabase.table("movimentacoes_caixa").upsert(item, on_conflict="id").execute()
+            if resposta.data and len(resposta.data) > 0:
+                mov.id = resposta.data[0].get("id", mov.id)
+        except Exception as erro:
+            if "empresa_id" in str(erro) and "empresa_id" in item:
+                del item["empresa_id"]
+                try:
+                    resposta = supabase.table("movimentacoes_caixa").upsert(item, on_conflict="id").execute()
+                    if resposta.data and len(resposta.data) > 0:
+                        mov.id = resposta.data[0].get("id", mov.id)
+                except Exception:
+                    pass
+            else:
+                print(f"[AVISO] Nao foi possivel persistir movimentacao de caixa no banco: {erro}")
+
+    def _salvar_movimentacoes(self) -> None:
+        """Sincroniza as movimentacoes usando upsert seguro por id (nunca delete em lote)."""
         if not self._movimentacoes:
             return
         dados = []
@@ -78,7 +99,7 @@ class CaixaService(BaseSupabaseService):
                 item["empresa_id"] = eid
             dados.append(item)
         try:
-            supabase.table("movimentacoes_caixa").insert(dados).execute()
+            supabase.table("movimentacoes_caixa").upsert(dados, on_conflict="id").execute()
         except Exception:
             pass
 
@@ -103,7 +124,7 @@ class CaixaService(BaseSupabaseService):
             empresa_id=getattr(self, "_empresa_id", None),
         )
         self._movimentacoes.append(mov)
-        self._salvar_movimentacoes()
+        self._inserir_movimentacao(mov)
         return mov
 
     # =====================================================
@@ -234,21 +255,79 @@ class CaixaService(BaseSupabaseService):
             id_caixa, "entrada", valor, descricao, forma_pagamento, usuario,
         )
 
+    def estorno(
+        self,
+        id_caixa: int,
+        valor: float,
+        motivo: str = "",
+        forma_pagamento: str = "dinheiro",
+        usuario: str | None = None,
+    ) -> MovimentacaoCaixa:
+        """Registra um estorno (saida/devolucao) no caixa."""
+        caixa = self.buscar_por_id(id_caixa)
+        if caixa is None:
+            raise ValueError("Caixa nao encontrado.")
+        if valor is None or valor <= 0:
+            raise ValueError("Informe um valor valido para o estorno.")
+        return self._adicionar_movimentacao(
+            id_caixa, "estorno", valor, motivo or "Estorno de pagamento", forma_pagamento or "dinheiro", usuario,
+        )
+
     # =====================================================
-    # TOTAIS
+    # TOTAIS E RESUMO
     # =====================================================
 
     def totais_por_forma(self, id_caixa: int) -> dict:
-        """Retorna os totais recebidos por forma de pagamento no caixa."""
+        """
+        Retorna os totais liquidos esperados por forma de pagamento no caixa.
+        - Para 'dinheiro': soma suprimentos (+) e entradas (+), e subtrai sangrias (-) e estornos (-).
+        - Para outras formas (pix, cartoes, etc.): soma entradas (+) e subtrai estornos (-).
+        """
         totais = {forma: 0.0 for forma in FORMAS_FECHAMENTO}
         for mov in self._movimentacoes:
             if mov.caixa_id != id_caixa:
                 continue
-            if mov.tipo == "entrada":
-                forma = mov.forma_pagamento or "dinheiro"
-                if forma in totais:
-                    totais[forma] += mov.valor
+            forma = mov.forma_pagamento or "dinheiro"
+            if forma not in totais:
+                totais[forma] = 0.0
+
+            if mov.tipo in ("entrada", "suprimento"):
+                totais[forma] += mov.valor
+            elif mov.tipo in ("saida", "sangria", "estorno"):
+                totais[forma] -= mov.valor
+
         return {forma: round(valor, 2) for forma, valor in totais.items()}
+
+    def resumo_detalhado(self, id_caixa: int) -> dict:
+        """Retorna um resumo detalhado e discriminado de todas as operacoes do caixa."""
+        caixa = self.buscar_por_id(id_caixa)
+        if not caixa:
+            return {}
+
+        movs = [m for m in self._movimentacoes if m.caixa_id == id_caixa]
+        total_entradas = sum(m.valor for m in movs if m.tipo == "entrada")
+        total_suprimentos = sum(m.valor for m in movs if m.tipo == "suprimento" and m.descricao != "Valor inicial de abertura")
+        total_sangrias = sum(m.valor for m in movs if m.tipo == "sangria")
+        total_estornos = sum(m.valor for m in movs if m.tipo == "estorno")
+
+        totais_formas = self.totais_por_forma(id_caixa)
+        saldo_dinheiro = totais_formas.get("dinheiro", 0.0)
+        saldo_total = round(sum(totais_formas.values()), 2)
+
+        return {
+            "caixa_id": id_caixa,
+            "operador": caixa.operador,
+            "status": caixa.status,
+            "valor_inicial": caixa.valor_inicial,
+            "total_entradas": round(total_entradas, 2),
+            "total_suprimentos": round(total_suprimentos, 2),
+            "total_sangrias": round(total_sangrias, 2),
+            "total_estornos": round(total_estornos, 2),
+            "saldo_dinheiro": round(saldo_dinheiro, 2),
+            "saldo_total": round(saldo_total, 2),
+            "totais_por_forma": totais_formas,
+            "quantidade_movimentacoes": len(movs),
+        }
 
     def movimentacoes_do_caixa(self, id_caixa: int) -> List[MovimentacaoCaixa]:
         """Retorna as movimentacoes de um caixa."""

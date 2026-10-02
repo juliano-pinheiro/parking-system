@@ -1,173 +1,151 @@
 # Sistema de Estacionamento com Controle por Ticket
 
-Sistema completo de gerenciamento de estacionamento, com **interface web (Flask)** e
-**interface de terminal**, compartilhando as mesmas regras de negocio. Os dados sao
-persistidos no **Supabase (PostgreSQL)**.
+Sistema completo e profissional de gerenciamento de estacionamento, com **interface web moderna e responsiva (Flask)** e **interface de terminal**, compartilhando as mesmas regras de negócio. Os dados são persistidos no **Supabase (PostgreSQL)** com suporte multi-empresa.
 
-- **Web** (`app.py`): painel completo no navegador com login, multi-empresa, financeiro,
-  caixa, relatorios e controle de acesso por perfil.
-- **Terminal** (`main.py`): menu interativo via linha de comando, sem dependencias externas.
+- **Web** (`app.py`): painel completo no navegador com login, multi-empresa (multi-CNPJ), dashboard financeiro executivo, controle de caixa, relatórios gerenciais, checkout ágil, acesso mobile para operadores e controle granular de permissões (RBAC).
+- **Terminal** (`main.py`): menu interativo via linha de comando, sem dependências externas.
 
-## Funcionalidades
+---
 
-### Operacao
-- Emissao de ticket na entrada: numero sequencial, placa, vaga, tipo de veiculo, data/hora.
-- Registro de saida com calculo automatico do valor (primeira hora + adicionais, fracionamento,
-  diaria, meia estadia, tabela noturna/fim de semana/feriado, pernoite).
-- Controle de vagas em tempo real, com vagas separadas por tipo de veiculo (carro, moto,
-  carro grande, caminhonete) e mapa de vagas visual.
-- Ticket perdido (com tarifa configurável e exigencia de autorizacao).
-- Lista negra de placas, reservas de vaga e registro de ocorrencias.
-- Impressao de ticket com codigo de barras (barcode SVG).
+## Principais Funcionalidades
 
-### Financeiro
-- Caixa: abertura/fechamento, sangria, suprimento, totais por forma de pagamento.
-- Pagamentos (dinheiro, PIX, cartao etc.) com formas de pagamento configuraveis.
-- Cancelamento e estorno de pagamentos com autorizacao.
-- Financeiro: lancamentos manuais, contas a receber, convenios, mensalistas com mensalidades
-  e controle de inadimplencia, descontos e cortesias.
-- Emissao de NFSe simplificada (com cancelamento).
-- Dashboard financeiro (receita do dia/mes/ano, ticket medio) e relatorio financeiro com
-  agrupamento por dia/semana/mes, exportavel em **CSV e PDF**.
-- Relatorio de ocupacao e DRE (receita bruta, descontos, cortesias, estornos).
+### 🚗 Operação de Pátio & Entrada/Saída
+- **Emissão de Ticket**: placa no padrão Mercosul com formatação automática, categoria do veículo (Carro, Moto, Camionete, etc.), seletor de cores/avarias rápidas, vaga e data/hora.
+- **Bloqueio Mandatório sem Caixa**: emissão de tickets e cobrança de tickets perdidos bloqueadas automaticamente caso o caixa do dia esteja fechado.
+- **Hero Banner de Ocupação**: monitoramento visual da lotação do pátio em tempo real com barra de progresso, taxa percentual e vagas disponíveis.
+- **Checkout de Saída & Pagamento**:
+  - Pré-cálculo automático do valor com base no tempo de permanência e tabela de preços vigente (`GET /api/saida/calcular`).
+  - Resumo do veículo (placa, tipo, vaga, permanência e observações).
+  - Exibição em destaque do valor total a pagar e calculadora de troco para pagamentos em dinheiro.
+  - Identificação de **Mensalistas** com isenção automática (`R$ 0,00`).
+  - Emissão e abertura automática do comprovante/recibo pronto para impressão imediata.
+- **Valores Acumulados em Tempo Real**: acompanhamento na lista do pátio do valor acumulado até o momento para cada veículo estacionado.
+- **Ticket Perdido com Liberação de Vaga**: encerramento do ticket aberto da placa correspondente, liberando a vaga no sistema e gerando o lançamento financeiro.
+- **Impressão de Tickets e Comprovantes**: suporte a bobinas térmicas (80mm e 58mm) ou A4, com código de barras SVG e cabeçalho/rodapé customizáveis.
+- **Mapa Visual de Vagas**: visualização interativa de todas as vagas do pátio (livres e ocupadas com placa e categoria).
 
-### Administracao
-- **Multi-empresa (multi-CNPJ)**: cadastro de empresas e isolamento dos dados por CNPJ.
-- **Autenticacao**: login com email/senha, troca de senha, usuarios por empresa.
-- **Perfis e permissoes**: perfis (admin, supervisor, operador, etc.), matriz de permissoes
-  por modulo e acao, clonagem de perfil, aplicacao no menu e nas APIs.
-- **Auditoria**: registro de alteracoes e logs de acesso (com filtros e exportacao CSV).
-- **Notificacoes**: central de avisos de vencimento/inadimplencia de mensalistas.
-- **Backup**: exportacao completa do backup da empresa ativa em JSON.
+### 📱 Acesso Mobile & Terminal do Operador
+- **QR Code de Acesso Rápido**: o sistema detecta o IP da rede local Wi-Fi e gera um QR Code na tela. O operador aponta a câmera do smartphone e acessa o sistema na hora.
+- **Barra Inferior Rápida (Bottom Bar)**: interface 100% otimizada para toque em celulares e coletores POS, com atalhos para Entrada, Pátio, Saída, Mapa de Vagas e Menu.
+- **Servidor com Vínculo Externo**: Flask configurado em `0.0.0.0` para permitir acesso de múltiplos aparelhos na rede local.
 
-## Arquitetura
+### 💰 Financeiro & Caixa
+- **Caixa Completo**: abertura com fundo de troco, sangria, suprimento, fechamento cego/conferido e extrato detalhado de movimentações.
+- **Dashboard Financeiro Executivo**:
+  - Cockpit de KPIs: Receita do Dia, Mês, Ano, Volume de Atendimentos e Ticket Médio.
+  - Painel de Evolução com alternância de abas: Diário (30 dias), Mensal (12 meses) e Anual (5 anos).
+  - Mix de Meios de Pagamento: Gráfico Donut acompanhado de tabela analítica com valores e percentuais.
+  - Curva de Fluxo por Horário (24h) com badge de identificação do **Horário de Pico do Dia**.
+  - Ranking de Produtividade dos Operadores e Balanço Comparativo Mensal.
+- **Relatório por Formas de Pagamento**: extrato analítico com filtro por período, forma de pagamento, métricas consolidadas e exportação CSV.
+- **DRE e Relatório de Ocupação**: demonstrativo de resultado com receita bruta, descontos, cortesias, estornos e resultado líquido.
+- **NFSe Simplificada**: emissão e cancelamento de notas fiscais de serviço.
+
+### 🏢 Administração, Segurança & Multi-CNPJ
+- **Multi-Empresa (Multi-CNPJ)**: isolamento completo de tickets, caixa, financeiro e configurações por empresa/filial, com troca rápida no cabeçalho.
+- **Central de Permissões (RBAC)**: catálogo de módulos e ações (`ver`, `criar`, `editar`, `excluir`, `autorizar`), personalização de acessos e clonagem de perfis.
+- **Auditoria Completa**: trilha de auditoria registrando todas as operações críticas com filtro e exportação CSV.
+- **Contas a Receber, Mensalistas & Convênios**: controle de mensalidades com status de adimplência, bloqueio automático de inadimplentes na entrada e convênios comerciais.
+- **Backup Completo**: exportação em formato JSON de toda a base da empresa ativa.
+
+---
+
+## Arquitetura do Projeto
 
 ```
 parking-system/
-├── app.py                          # Interface web (Flask): cria o app e registra os blueprints
-├── main.py                         # Interface terminal (menu interativo)
-├── services_registry.py            # Instancias dos servicos + helpers (auth, permissoes, serializacao)
-├── routes/                         # Blueprints da API (cada modulo um arquivo)
-│   ├── auth.py                     # Login, sessao, troca de senha, troca de empresa
-│   ├── operacao.py                 # Status, vagas, dashboard, entrada/saida, ticket perdido
-│   ├── financeiro.py               # Financeiro, caixa, pagamentos, estornos, formas
-│   ├── precos.py                   # Configuracoes, tabela de precos, tipos, descontos, cortesias
-│   ├── clientes.py                 # Clientes, mensalistas, convenios, contas a receber
-│   ├── administracao.py            # Usuarios, empresas, perfis, permissoes, auditoria
-│   ├── relatorios.py               # Movimentacao, financeiro (CSV/PDF), ocupacao, DRE
-│   ├── extras.py                   # NFSe, lista negra, reservas, ocorrencias, backup
-│   └── paginas.py                  # Frontend (/) e login (/login)
-├── supabase_client.py              # Cliente do Supabase (carregado do .env)
-├── requirements.txt                # Dependencias do projeto (pip install -r)
-├── models/                         # Modelos de dados (dataclasses)
-│   ├── ticket.py, configuracao.py, cliente.py, usuario.py, empresa.py ...
-│   └── (financeiro, caixa, pagamento, mensalista, convenio, nfse, etc.)
-├── services/                       # Regras de negocio e persistencia
-│   ├── estacionamento_service.py   # Regras principais (entrada, saida, calculo)
-│   ├── persistencia_service.py     # Acesso ao Supabase (tickets, configuracao)
-│   ├── base_supabase_service.py    # Base CRUD para os demais modulos
-│   └── ... (um servico por modulo)
-├── sql/                            # Scripts SQL para o Supabase (criacao/evolucao)
+├── app.py                          # Ponto de entrada Flask (host 0.0.0.0)
+├── main.py                         # Interface terminal (modo texto)
+├── services_registry.py            # Registry de serviços, RBAC e serializadores
+├── routes/                         # Blueprints da API REST
+│   ├── auth.py                     # Login, sessão, troca de senha e empresa
+│   ├── operacao.py                 # Pátio, entrada, checkout, pré-cálculo e acesso mobile
+│   ├── financeiro.py               # Dashboard financeiro, caixa, pagamentos, formas
+│   ├── precos.py                   # Tabela de preços, configurações e tipos de veículo
+│   ├── clientes.py                 # Clientes, mensalistas, convênios e contas a receber
+│   ├── administracao.py            # Usuários, empresas, perfis RBAC e auditoria
+│   ├── relatorios.py               # Relatórios financeiros, formas de pagamento, DRE
+│   ├── extras.py                   # NFSe, lista negra, reservas, ocorrências, backup
+│   └── paginas.py                  # Servidor de páginas HTML
+├── models/                         # Dataclasses de domínio (Ticket, Caixa, Empresa, etc.)
+├── services/                       # Serviços de negócio e persistência Supabase
+├── sql/                            # Scripts de banco de dados PostgreSQL (Supabase)
 ├── templates/
-│   ├── index.html                  # SPA principal (painel)
-│   └── login.html                  # Pagina de login
+│   ├── index.html                  # SPA principal com todos os módulos e modais
+│   └── login.html                  # Tela de autenticação moderna
 ├── static/
-│   ├── css/style.css
-│   └── js/app.js                   # Logica do frontend (consumo da API)
-├── tests/                          # Testes de integracao (test client do Flask)
-└── data/                           # Pasta de dados locais (gerada automaticamente)
+│   ├── css/style.css               # Folha de estilos completa e responsiva
+│   └── js/app.js                   # Lógica e interatividade do frontend
+└── tests/                          # Suíte de testes automatizados
+    ├── run_tests.py                # Executor unificado de testes
+    ├── test_routes.py              # Testes de rotas públicas e autenticação
+    ├── test_fluxos_principais.py   # Testes de pátio, checkout, dashboard e mobile
+    ├── test_caixa_otimizado.py     # Testes de caixa, sangrias e bloqueio de tickets
+    ├── test_permissoes_detalhadas.py# Testes da central de permissões RBAC
+    ├── test_configuracoes_revisadas.py # Testes de validação de configurações
+    └── test_relatorio_pagamentos.py# Testes de relatórios e filtros
 ```
 
-## Requisitos
+---
 
-- Python 3.10 ou superior.
-- Um projeto [Supabase](https://supabase.com) com as tabelas criadas (ver abaixo).
-- Dependencias: `Flask`, `supabase`, `python-dotenv` e `reportlab` (apenas para a interface
-  web; a versao terminal nao exige bibliotecas externas).
+## Configuração Inicial
 
-## Configuracao inicial
-
-1. **Instale as dependencias** (interface web):
-
+1. **Instale as dependências**:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Configure o `.env`** na raiz do projeto, apontando para o seu projeto Supabase:
-
-   ```
+2. **Configure o `.env`**:
+   ```env
    SUPABASE_URL=https://SEU-PROJETO.supabase.co
    SUPABASE_KEY=sua-service-role-key-ou-anon-key
+   SECRET_KEY=sua-chave-secreta
    ```
 
-3. **Crie as tabelas no Supabase**: execute os scripts da pasta `sql/` no SQL Editor do
-   Supabase, na ordem adequada:
-   - `sql/criar_tabela_financeiro.sql` e `sql/criar_tabelas_financeiro.sql` (tabelas base)
-   - `sql/criar_tabela_perfis.sql`, `sql/criar_tabela_permissoes.sql`
-   - `sql/criar_multi_empresa.sql` (empresas e coluna empresa_id)
-   - `sql/modulos_avancados.sql` (nfse, lista negra, reservas, ocorrencias)
-   - `sql/tipos_veiculo.sql`
-   - `sql/adicionar_colunas_*.sql` e `sql/correcao_colunas_pendentes.sql` (evolucao)
-   - `sql/corrigir_rls_empresas.sql` (ajusta Row Level Security para acesso via chave do app)
+3. **Banco de dados**:
+   Execute os scripts SQL na pasta `sql/` no editor do Supabase.
 
-   > Os scripts usam `IF NOT EXISTS` / `IF EXISTS` e podem ser executados mais de uma vez.
+---
 
-> A migracao dos dados locais (JSON) para o Supabase ja foi concluida: o sistema le e
-> grava tudo diretamente no Supabase. Nao ha mais arquivos JSON em uso.
+## Publicação da Aplicação
 
-## Como executar
+O GitHub Pages hospeda apenas arquivos estáticos e **não executa o Flask nem a
+API** usada pelo sistema. Para publicar a aplicação completa, conecte este
+repositório ao Render e crie um Web Service usando o arquivo `render.yaml`.
+Essa configuração usa o plano Starter e um disco persistente para os dados
+JSON locais. Configure `SUPABASE_URL` e `SUPABASE_KEY` como variáveis secretas
+do serviço; `SECRET_KEY` é gerada automaticamente pelo Render. O serviço usa
+um worker Gunicorn para evitar divergência entre estado mantido em memória por
+workers distintos.
 
-### Interface web
+Antes do primeiro deploy, configure o projeto Supabase e aplique as migrações
+necessárias em `sql/` no SQL Editor. Esses arquivos são scripts incrementais
+para tabelas existentes; eles não compõem um instalador completo para um banco
+vazio, e o Render não os executa automaticamente.
 
+O deploy de produção inicia com Gunicorn. `FLASK_DEBUG` fica desativado por
+padrão; só habilite o modo debug localmente quando necessário.
+
+### Execução local
+
+### Interface Web
 ```bash
 python app.py
 ```
+Acesse `http://localhost:5000` (ou utilize o IP e QR Code exibidos pelo menu **Acesso Mobile** para conectar pelo celular).
 
-Acesse [http://127.0.0.1:5000](http://127.0.0.1:5000). Faca login com um usuario
-cadastrado (perfis: `admin`, `supervisor`, `operador`, etc.). A tela inicial e o
-**Dashboard**, com o menu lateral para: Registrar Entrada/Saida, Pátio/Vagas, Financeiro,
-Caixa, Mensalistas, Clientes, Relatorios, Configuracoes, Usuarios, Empresas, Permissoes,
-Auditoria, NFSe, Lista Negra, Reservas, Ocorrencias e Avisos.
-
-### Interface terminal
-
+### Interface Terminal
 ```bash
 python main.py
 ```
 
-Menu numerico com: Registrar Entrada, Registrar Saida, Controle de Vagas, Relatorio e
-Configuracoes. Usa as mesmas regras de negocio e o mesmo banco (Supabase) da versao web.
+---
 
-## Executar os testes
+## Testes Automatizados
 
-Os testes usam o test client do Flask (em memoria, sem servidor e sem dados reais):
+O sistema inclui uma suíte de testes automatizados:
 
 ```bash
-pip install -r requirements.txt   # inclui pytest na secao de desenvolvimento
-python -m pytest tests/ -v
+python tests/run_tests.py
 ```
-
-Cobrem paginas publicas, rotas publicas da API, redirecionamentos de autenticacao e a
-protecao das rotas que exigem sessao. Nao dependem de credenciais nem de dados do banco.
-
-## Primeiro acesso
-
-Para criar o primeiro usuario (admin), execute no SQL Editor do Supabase ou utilize um
-script de bootstrap:
-
-```sql
--- Exemplo: criar um usuario admin (substitua os valores)
-INSERT INTO usuarios (nome, email, senha, perfil, master, ativo)
-VALUES ('Administrador', 'admin@exemplo.com', '<hash-da-senha>', 'admin', TRUE, TRUE);
-```
-
-> A senha e armazenada como hash. O cadastro de usuarios tambem pode ser feito pela tela
-> **Usuarios** no painel web, desde que exista ao menos um usuario master/admin.
-
-## Observacoes
-
-- Placas sao armazenadas em letras maiusculas.
-- Nao e permitido registrar duas entradas abertas para a mesma placa.
-- Ao reduzir o total de vagas, o sistema impede valores menores que a quantidade de
-  veiculos ja estacionados.
-- Os dados sao persistidos no Supabase; a pasta `data/` e ignorada pelo `.gitignore`.
+*(Executa 37 testes automatizados cobrindo rotas, bloqueio sem caixa aberto, pré-cálculo de pátio, liberação de vaga em ticket perdido, dashboard financeiro, RBAC, multi-CNPJ, persistência e relatórios).*

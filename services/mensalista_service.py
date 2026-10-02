@@ -90,6 +90,8 @@ class MensalistaService(BaseSupabaseService):
         valor_mensal: float = 0.0,
         dia_vencimento: int = 5,
         cliente_id: int | None = None,
+        placa: str = "",
+        tipo_veiculo: str = "Carro",
     ) -> Mensalista:
         nome = (nome or "").strip()
         if not nome:
@@ -106,6 +108,8 @@ class MensalistaService(BaseSupabaseService):
             cpf_cnpj=cpf_cnpj,
             telefone=telefone,
             email=email,
+            placa=(placa or "").strip().upper(),
+            tipo_veiculo=(tipo_veiculo or "Carro").strip() or "Carro",
             valor_mensal=round(float(valor_mensal), 2),
             dia_vencimento=int(dia_vencimento),
             status=STATUS_ATIVO,
@@ -125,6 +129,8 @@ class MensalistaService(BaseSupabaseService):
         valor_mensal: float | None = None,
         dia_vencimento: int | None = None,
         status: str | None = None,
+        placa: str | None = None,
+        tipo_veiculo: str | None = None,
     ) -> Optional[Mensalista]:
         mensalista = self.buscar_por_id(id_mensalista)
         if mensalista is None:
@@ -140,6 +146,10 @@ class MensalistaService(BaseSupabaseService):
             mensalista.telefone = telefone
         if email is not None:
             mensalista.email = email
+        if placa is not None:
+            mensalista.placa = (placa or "").strip().upper()
+        if tipo_veiculo is not None:
+            mensalista.tipo_veiculo = (tipo_veiculo or "Carro").strip() or "Carro"
         if valor_mensal is not None:
             if valor_mensal < 0:
                 raise ValueError("Valor mensal invalido.")
@@ -155,6 +165,16 @@ class MensalistaService(BaseSupabaseService):
         mensalista.alterado_em = datetime.now().strftime(FORMATO_DATA)
         self._persistir()
         return mensalista
+
+    def buscar_por_placa(self, placa: str) -> Optional[Mensalista]:
+        """Busca mensalista cadastrado pela placa do veiculo."""
+        placa_limpa = (placa or "").strip().upper()
+        if not placa_limpa:
+            return None
+        for m in self._registros:
+            if getattr(m, "placa", "").strip().upper() == placa_limpa:
+                return m
+        return None
 
     def bloquear(self, id_mensalista: int) -> Optional[Mensalista]:
         """Bloqueia um mensalista (bloqueio automatico por inadimplencia)."""
@@ -235,19 +255,31 @@ class MensalistaService(BaseSupabaseService):
     # INADIMPLENCIA / BLOQUEIO AUTOMATICO
     # =====================================================
 
+    @staticmethod
+    def _parse_competencia(comp: str) -> tuple[int, int]:
+        """Converte 'MM/AAAA' para (AAAA, MM) para comparacao cronologica correta."""
+        try:
+            partes = str(comp or "").strip().split("/")
+            if len(partes) == 2:
+                return int(partes[1]), int(partes[0])
+        except Exception:
+            pass
+        return (0, 0)
+
     def verificar_inadimplencia(self) -> List[Mensalista]:
         """
         Marca mensalidades vencidas como 'atrasado' e bloqueia
         automaticamente mensalistas com mensalidade em atraso.
         """
         hoje = datetime.now()
-        competencia_atual = hoje.strftime("%m/%Y")
+        comp_atual_tuple = (hoje.year, hoje.month)
         bloqueados = []
 
         for mensalidade in self._mensalidades:
             if mensalidade.status != MENSALIDADE_PENDENTE:
                 continue
-            if mensalidade.competencia < competencia_atual:
+            comp_mensalidade_tuple = self._parse_competencia(mensalidade.competencia)
+            if comp_mensalidade_tuple < comp_atual_tuple:
                 mensalidade.status = MENSALIDADE_ATRASADO
                 mensalista = self.buscar_por_id(mensalidade.mensalista_id)
                 if mensalista and mensalista.status == STATUS_ATIVO:

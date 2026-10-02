@@ -166,6 +166,8 @@
           btn.textContent = "Entrar";
           return;
         }
+        localStorage.removeItem("estaciona_view");
+        localStorage.removeItem("estaciona_aba");
         window.location.href = "/";
       } catch (erro) {
         erroEl.textContent = "Erro de conexão. Tente novamente.";

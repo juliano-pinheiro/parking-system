@@ -18,9 +18,10 @@ FORMATO_DATA = "%d/%m/%Y %H:%M:%S"
 class EstacionamentoService:
     """Regras de negocio do estacionamento."""
 
-    def __init__(self, empresa_id: int | None = None):
+    def __init__(self, empresa_id: int | None = None, tabela_preco_service=None):
         self.persistencia = PersistenciaService()
         self.empresa_id = empresa_id
+        self.tabela_preco_service = tabela_preco_service
         self.tickets: List[Ticket] = []
         self.config: Configuracao = Configuracao()
         self.recarregar(empresa_id)
@@ -32,6 +33,14 @@ class EstacionamentoService:
         self.config = self.persistencia.carregar_configuracao(empresa_id)
         if empresa_id is not None:
             self.config.empresa_id = empresa_id
+            if self.config.nome_estacionamento in ("Estaciona Parking", "", None):
+                try:
+                    from services_registry import servico_empresas
+                    emp = servico_empresas.buscar_por_id(empresa_id)
+                    if emp and emp.nome_fantasia:
+                        self.config.nome_estacionamento = emp.nome_fantasia
+                except Exception:
+                    pass
 
     # ---------------------- ENTRADA ----------------------
 
@@ -72,10 +81,12 @@ class EstacionamentoService:
             empresa_id=self.empresa_id,
         )
 
+        # O INSERT faz o banco rejeitar uma colisao de numero, sem substituir
+        # silenciosamente um ticket criado por outra instancia do servidor.
+        self.persistencia.criar_ticket_individual(ticket, self.empresa_id)
         self.tickets.append(ticket)
         self.config.proximo_numero_ticket = numero + 1
-
-        self._salvar_tudo()
+        self.persistencia.salvar_configuracao(self.config, self.empresa_id)
         return ticket
 
     # ---------------------- SAIDA ----------------------
@@ -92,19 +103,31 @@ class EstacionamentoService:
 
         agora = datetime.now()
         ticket.saida = agora.strftime(FORMATO_DATA)
-        ticket.valor = self.calcular_valor(ticket.entrada, ticket.saida)
+        ticket.valor = self.calcular_valor(ticket.entrada, ticket.saida, ticket.tipo_veiculo)
         ticket.status = "FECHADO"
         ticket.forma_pagamento = forma_pagamento
 
-        self._salvar_tudo()
+        # Salva pontualmente apenas o ticket fechado
+        self.persistencia.salvar_ticket_individual(ticket, self.empresa_id)
         return ticket
 
-    def calcular_valor(self, entrada_str: str, saida_str: str) -> float:
+    def calcular_valor(self, entrada_str: str, saida_str: str, tipo_veiculo: str = "Carro") -> float:
         """
         Calcula o valor a ser pago com base no tempo de permanencia.
-        Regra: primeira hora (ou fracao) custa 'valor_primeira_hora';
-        cada hora adicional (ou fracao) custa 'valor_hora_adicional'.
+        Se tabela_preco_service estiver configurada, aplica suas regras
+        (tolerancia, tipo de veiculo, fracionamento, pernoite, etc.).
+        Caso contrario, usa o fallback de Configuracao.
         """
+        if self.tabela_preco_service is not None:
+            try:
+                return self.tabela_preco_service.calcular_valor(
+                    entrada=entrada_str,
+                    saida=saida_str,
+                    tipo_veiculo=tipo_veiculo,
+                )
+            except Exception:
+                pass
+
         entrada = datetime.strptime(entrada_str, FORMATO_DATA)
         saida = datetime.strptime(saida_str, FORMATO_DATA)
 
@@ -281,7 +304,7 @@ class EstacionamentoService:
             "nome_estacionamento", "cnpj", "telefone", "endereco",
             "cidade", "estado", "cep", "horario_abertura",
             "horario_fechamento", "cabecalho_ticket", "rodape_ticket",
-            "pix_tipo", "pix_chave",
+            "pix_tipo", "pix_chave", "ticket_formato_papel",
         }
         campos_int = {
             "total_vagas", "vagas_carro", "vagas_moto",
@@ -290,7 +313,10 @@ class EstacionamentoService:
         campos_float = {
             "valor_primeira_hora", "valor_hora_adicional", "valor_mensal",
         }
-        campos_bool = {"bloquear_sem_vaga", "exigir_observacao"}
+        campos_bool = {
+            "bloquear_sem_vaga", "exigir_observacao",
+            "ticket_exibir_cnpj", "ticket_exibir_contato", "ticket_exibir_codigo_barras",
+        }
 
         for campo, valor in kwargs.items():
             if valor is None or not hasattr(self.config, campo):

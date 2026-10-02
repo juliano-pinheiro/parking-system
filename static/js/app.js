@@ -101,6 +101,19 @@ function atualizarDataHeader() {
 // ---------------------- NAVEGACAO ENTRE VIEWS ----------------------
 
 function mostrarView(viewId) {
+  // Visao Geral e sempre permitida para todos os usuarios autenticados
+  if (viewId && viewId !== "view-visao-geral" && perfilUsuarioAtual && perfilUsuarioAtual !== "admin") {
+    const modulo = MENU_PERMISSAO[viewId];
+    if (modulo) {
+      const permitido = (permissoesMatriz && permissoesMatriz[modulo] && permissoesMatriz[modulo][perfilUsuarioAtual] || []).includes("ver");
+      if (!permitido) {
+        mostrarToast("Você não possui permissão para acessar este módulo.", "error");
+        mostrarView("view-visao-geral");
+        return;
+      }
+    }
+  }
+
   // Persiste a view atual para restaurar ao recarregar a pagina (F5)
   localStorage.setItem("estaciona_view", viewId);
 
@@ -131,10 +144,22 @@ function mostrarView(viewId) {
     else if (abaAtual === "consultar") consultar("");
   } else if (viewId === "view-empresas") {
     carregarEmpresas();
+  } else if (viewId === "view-usuarios") {
+    carregarUsuarios();
+  } else if (viewId === "view-clientes") {
+    carregarClientes();
+  } else if (viewId === "view-configuracoes") {
+    carregarConfiguracoes();
   } else if (viewId === "view-financeiro") {
     carregarFinanceiro();
   } else if (viewId === "view-relatorios") {
-    carregarRelatoriosFinanceiros();
+    const tabAtiva = document.querySelector(".relatorio-tabs .tab.active")?.dataset.relatorioTab || "geral";
+    if (tabAtiva === "pagamentos") {
+      carregarFormasPagamentoRelatorio();
+      carregarRelatorioPagamentos();
+    } else {
+      carregarRelatoriosFinanceiros();
+    }
   } else if (viewId === "view-caixa") {
     carregarCaixa();
   } else if (viewId === "view-pagamentos") {
@@ -165,6 +190,8 @@ function mostrarView(viewId) {
     carregarAvisos();
   } else if (viewId === "view-auditoria") {
     carregarAuditoria();
+  } else if (viewId === "view-permissoes") {
+    carregarPerfis();
   }
 }
 
@@ -199,17 +226,20 @@ if (inputPesquisaMenu) {
         return;
       }
       const texto = item.textContent.toLowerCase();
-      item.style.display = !termo || texto.includes(termo) ? "flex" : "none";
+      const visivel = !termo || texto.includes(termo);
+      item.style.display = visivel ? "flex" : "none";
     });
-    // Oculta o rotulo de secao quando nenhum item visivel corresponde a busca
-    document.querySelectorAll(".menu-subgroup-label").forEach((label) => {
-      const grupo = label.id === "menu-label-financeiro" ? VIEWS_FINANCEIRO : VIEWS_CONTROLE;
-      const algumVisivel = grupo.some((viewId) => {
-        const item = document.querySelector(`.menu-item[data-view="${viewId}"]`);
-        if (!item || item.dataset.permissaoOculto === "1") return false;
-        return !termo || item.textContent.toLowerCase().includes(termo);
-      });
-      label.style.display = algumVisivel ? "" : "none";
+
+    // Oculta grupos sem itens correspondentes e expande os que tem resultado
+    document.querySelectorAll(".menu-group").forEach((grupo) => {
+      const itens = grupo.querySelectorAll(".menu-item");
+      const algumVisivel = Array.from(itens).some(
+        (item) => item.style.display !== "none" && item.dataset.permissaoOculto !== "1"
+      );
+      grupo.style.display = algumVisivel ? "" : "none";
+      if (termo && algumVisivel) {
+        grupo.classList.add("open");
+      }
     });
   });
 }
@@ -250,21 +280,252 @@ async function carregarDashboard() {
     const valorVagas = document.getElementById("card-vagas-disponiveis-valor");
     valorVagas.textContent = dados.vagas_disponiveis;
     cardVagas.classList.toggle("card-cheio", dados.vagas_disponiveis <= 0);
+
+    // Banner Hero de Ocupacao (Gauge Operacional)
+    const totalVagas = (dados.no_patio_agora || 0) + (dados.vagas_disponiveis || 0);
+    const pctOcupacao = totalVagas > 0 ? Math.min(100, Math.round((dados.no_patio_agora / totalVagas) * 100)) : 0;
+    const barFill = document.getElementById("ocupacao-bar-fill");
+    const pctBadge = document.getElementById("ocupacao-percent-badge");
+    const statsText = document.getElementById("ocupacao-stats-text");
+    const tagStatus = document.getElementById("ocupacao-tag-status");
+
+    if (barFill) {
+      barFill.style.width = `${pctOcupacao}%`;
+      if (dados.vagas_disponiveis <= 0) {
+        barFill.style.background = "linear-gradient(90deg, #ef4444 0%, #b91c1c 100%)";
+      } else if (pctOcupacao >= 85) {
+        barFill.style.background = "linear-gradient(90deg, #f59e0b 0%, #d97706 100%)";
+      } else {
+        barFill.style.background = "linear-gradient(90deg, #10b981 0%, #059669 100%)";
+      }
+    }
+    if (pctBadge) pctBadge.textContent = `${pctOcupacao}% ocupado`;
+    if (statsText) statsText.textContent = `${dados.no_patio_agora} de ${totalVagas} vagas ocupadas (${dados.vagas_disponiveis} disponíveis)`;
+    if (tagStatus) {
+      if (dados.vagas_disponiveis <= 0) {
+        tagStatus.textContent = "Pátio Lotado";
+        tagStatus.style.color = "#dc2626";
+      } else if (pctOcupacao >= 85) {
+        tagStatus.textContent = "Pátio Quase Lotado";
+        tagStatus.style.color = "#d97706";
+      } else {
+        tagStatus.textContent = "Operação Normal";
+        tagStatus.style.color = "#059669";
+      }
+    }
+    // Atualiza estado do caixa na tela inicial
+    caixaAberto = dados.caixa_aberto || null;
+    atualizarEstadoCaixaNaEntrada(caixaAberto);
   } catch (erro) {
     mostrarToast(erro.message, "error");
   }
 }
 
+// ---------------------- CONTROLE DE CAIXA NA NOVA ENTRADA ----------------------
+
+function atualizarEstadoCaixaNaEntrada(caixa) {
+  const alerta = document.getElementById("alerta-caixa-fechado-entrada");
+  const btnEmitir = document.getElementById("btn-emitir-ticket");
+  const inputPlaca = document.getElementById("input-placa");
+
+  if (!caixa) {
+    if (alerta) alerta.hidden = false;
+    if (btnEmitir) {
+      btnEmitir.disabled = true;
+      btnEmitir.classList.add("btn-desabilitado-caixa");
+      btnEmitir.innerHTML = '⚠️ Caixa Fechado (Abra o caixa para emitir)';
+      btnEmitir.title = "Abertura de caixa obrigatória antes de emitir tickets";
+    }
+    if (inputPlaca) {
+      inputPlaca.placeholder = "Caixa Fechado";
+    }
+  } else {
+    if (alerta) alerta.hidden = true;
+    if (btnEmitir) {
+      btnEmitir.disabled = false;
+      btnEmitir.classList.remove("btn-desabilitado-caixa");
+      btnEmitir.innerHTML = '<span class="btn-plus">+</span> Emitir Ticket (Enter ↵)';
+      btnEmitir.title = "Emitir novo ticket";
+    }
+    if (inputPlaca && inputPlaca.placeholder === "Caixa Fechado") {
+      inputPlaca.placeholder = "ABC1D23";
+    }
+  }
+}
+
+// Botao no alerta para abrir o caixa diretamente
+document.getElementById("btn-alerta-abrir-caixa")?.addEventListener("click", () => {
+  abrirModalAbrirCaixa();
+});
+
 // ---------------------- NOVA ENTRADA ----------------------
+
+// Auto-uppercase na placa
+const inputPlacaEl = document.getElementById("input-placa");
+if (inputPlacaEl) {
+  inputPlacaEl.addEventListener("input", (e) => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+  });
+}
+
+// Modelos de veiculos estritamente separados por categoria
+const MODELOS_POR_CATEGORIA = {
+  Carro: [
+    "Civic", "Corolla", "Onix", "Onix Plus", "Gol", "HB20", "HB20S", "Polo", "Argo", "Mobi",
+    "Kwid", "Cruze", "City", "Fit", "Yaris", "Cronos", "Virtus", "Ka", "Fiesta", "Focus",
+    "Sandero", "Logan", "Celta", "Prisma", "Corsa", "Classic", "Astra", "Vectra", "Palio",
+    "Siena", "Uno", "Punto", "Fox", "Voyage", "Up!", "Golf", "Jetta", "Fusca", "208", "C3",
+    "Sentra", "Versa", "Etios", "Cobalt", "Spin", "Compass", "Renegade", "Creta", "Tracker",
+    "T-Cross", "Nivus", "Taos", "Kicks", "HR-V", "WR-V", "Corolla Cross", "Duster", "Pulse",
+    "Fastback", "EcoSport"
+  ],
+  Caminhonete: [
+    "Hilux", "S10", "Ranger", "Amarok", "Toro", "Strada", "Saveiro", "L200 Triton", "Frontier",
+    "Montana", "Oroch", "Fiorino", "SW4", "Commander", "Rampage", "Ram 1500", "Ram 2500",
+    "Master", "Ducato", "Transit", "HR", "Bongo"
+  ],
+  Moto: [
+    "CG 160", "Biz 125", "Bros 160", "Pop 110i", "XRE 300", "XRE 190", "CB 300F", "Twister",
+    "Fazer 250", "Fazer 150", "Factor 150", "Crosser 150", "Lander 250", "PCX 160", "NMax 160",
+    "Elite 125"
+  ]
+};
+
+function atualizarSugestoesModelos() {
+  const inputObs = document.getElementById("input-observacoes");
+  const datalist = document.getElementById("lista-modelos-carros");
+  if (!inputObs || !datalist) return;
+
+  const texto = inputObs.value.trim();
+  const tipo = document.getElementById("input-tipo")?.value || "Carro";
+
+  // Só exibe as sugestões de modelos após iniciar a digitação no campo
+  if (texto.length > 0) {
+    const modelos = MODELOS_POR_CATEGORIA[tipo] || MODELOS_POR_CATEGORIA["Carro"];
+    datalist.innerHTML = modelos.map((m) => `<option value="${m}"></option>`).join("\n");
+    if (inputObs.getAttribute("list") !== "lista-modelos-carros") {
+      inputObs.setAttribute("list", "lista-modelos-carros");
+    }
+  } else {
+    // Campo vazio: remove o datalist para não exibir sugestões ao focar ou clicar
+    datalist.innerHTML = "";
+    if (inputObs.hasAttribute("list")) {
+      inputObs.removeAttribute("list");
+    }
+  }
+}
+
+function atualizarModelosPorCategoria(tipo) {
+  const inputObs = document.getElementById("input-observacoes");
+  const categoria = tipo || document.getElementById("input-tipo")?.value || "Carro";
+
+  // Ajusta o placeholder dinamicamente para orientar o operador
+  if (inputObs) {
+    if (categoria === "Moto") {
+      inputObs.placeholder = "Modelo da moto, cor ou detalhes (ex.: CG 160, preta)...";
+    } else if (categoria === "Caminhonete") {
+      inputObs.placeholder = "Modelo da camionete, cor ou detalhes (ex.: Hilux, branca)...";
+    } else {
+      inputObs.placeholder = "Modelo do carro, cor ou detalhes (ex.: Civic, prata)...";
+    }
+  }
+
+  // Atualiza as opções apenas se já houver digitação ativa
+  atualizarSugestoesModelos();
+}
+
+// Selecao rapida de categoria (Pills)
+document.querySelectorAll("#quick-types-selector .btn-quick-type").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#quick-types-selector .btn-quick-type").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    const tipo = btn.dataset.tipo;
+    const sel = document.getElementById("input-tipo");
+    if (sel) sel.value = tipo;
+    atualizarModelosPorCategoria(tipo);
+  });
+});
+
+document.getElementById("input-tipo")?.addEventListener("change", (e) => {
+  atualizarModelosPorCategoria(e.target.value);
+});
+
+// Controle de visibilidade dos atalhos rápidos (só aparecem ao iniciar a digitação)
+const inputObsEl = document.getElementById("input-observacoes");
+const quickChipsObsEl = document.getElementById("quick-chips-obs");
+
+function atualizarVisibilidadeChipsObs() {
+  if (!inputObsEl || !quickChipsObsEl) return;
+  const temTexto = inputObsEl.value.trim().length > 0;
+  quickChipsObsEl.classList.toggle("visible", temTexto);
+}
+
+// Inicializa estado limpo (sem sugestões e sem atalhos visíveis enquanto vazio)
+atualizarVisibilidadeChipsObs();
+atualizarSugestoesModelos();
+
+// Chips de observacoes rapidas
+document.querySelectorAll(".quick-chips-row .chip-obs").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    const obsInput = document.getElementById("input-observacoes");
+    if (!obsInput) return;
+    const val = chip.dataset.chip;
+    if (obsInput.value.trim().length > 0) {
+      if (!obsInput.value.includes(val)) {
+        obsInput.value = `${obsInput.value.trim()}, ${val}`;
+      }
+    } else {
+      obsInput.value = val;
+    }
+    atualizarVisibilidadeChipsObs();
+    atualizarSugestoesModelos();
+    obsInput.focus();
+  });
+});
+
+// Auto-seleção de categoria pelo modelo digitado/selecionado
+const MOTOS_COMUNS = ["CG 160", "Biz", "Bros", "Pop 110", "XRE", "CB 300", "Fazer", "PCX", "Titan", "Fan", "Factor", "Crosser", "Lander", "NMax"];
+const CAMIONETES_COMUNS = ["Hilux", "S10", "Ranger", "Amarok", "L200", "Frontier", "Toro", "Montana", "Oroch", "Fiorino", "Saveiro", "Strada", "Rampage", "Ram"];
+
+document.getElementById("input-observacoes")?.addEventListener("input", (e) => {
+  atualizarVisibilidadeChipsObs();
+  atualizarSugestoesModelos();
+  const texto = e.target.value.trim();
+  if (!texto) return;
+  const tipoSelect = document.getElementById("input-tipo");
+  if (!tipoSelect) return;
+
+  if (MOTOS_COMUNS.some(m => texto.toLowerCase().includes(m.toLowerCase()))) {
+    if (tipoSelect.value !== "Moto") {
+      tipoSelect.value = "Moto";
+      document.querySelectorAll(".btn-quick-type").forEach(b => b.classList.toggle("active", b.dataset.tipo === "Moto"));
+      atualizarModelosPorCategoria("Moto");
+    }
+  } else if (CAMIONETES_COMUNS.some(c => texto.toLowerCase().includes(c.toLowerCase()))) {
+    if (tipoSelect.value !== "Caminhonete") {
+      tipoSelect.value = "Caminhonete";
+      document.querySelectorAll(".btn-quick-type").forEach(b => b.classList.toggle("active", b.dataset.tipo === "Caminhonete"));
+      atualizarModelosPorCategoria("Caminhonete");
+    }
+  }
+});
 
 document.getElementById("form-entrada").addEventListener("submit", async (evento) => {
   evento.preventDefault();
+
+  // Validacao estrita: Bloquear emissao sem caixa aberto
+  if (!caixaAberto) {
+    mostrarToast("Não é permitido emitir ticket com o caixa fechado! Abra o caixa para operar.", "warning");
+    abrirModalAbrirCaixa();
+    return;
+  }
+
   const placaInput = document.getElementById("input-placa");
   const tipoInput = document.getElementById("input-tipo");
   const obsInput = document.getElementById("input-observacoes");
-  const botao = evento.target.querySelector(".btn-emitir");
+  const botao = document.getElementById("btn-emitir-ticket") || evento.target.querySelector(".btn-emitir");
 
-  const placa = placaInput.value.trim();
+  const placa = placaInput.value.trim().toUpperCase();
   if (!placa) return;
 
   botao.disabled = true;
@@ -280,7 +541,14 @@ document.getElementById("form-entrada").addEventListener("submit", async (evento
     mostrarToast(dados.mensagem, "success");
     placaInput.value = "";
     obsInput.value = "";
+    atualizarVisibilidadeChipsObs();
     tipoInput.value = "Carro";
+
+    // Reseta pills de tipo para Carro
+    document.querySelectorAll("#quick-types-selector .btn-quick-type").forEach((b) => {
+      b.classList.toggle("active", b.dataset.tipo === "Carro");
+    });
+    atualizarModelosPorCategoria("Carro");
 
     await carregarDashboard();
     if (abaAtual === "patio") await carregarPatio();
@@ -290,7 +558,7 @@ document.getElementById("form-entrada").addEventListener("submit", async (evento
   } catch (erro) {
     mostrarToast(erro.message, "error");
   } finally {
-    botao.disabled = false;
+    if (caixaAberto && botao) botao.disabled = false;
   }
 });
 
@@ -437,16 +705,218 @@ document.getElementById("ticket-modal").addEventListener("click", (evento) => {
 
 document.addEventListener("keydown", (evento) => {
   if (evento.key === "Escape" && !document.getElementById("ticket-modal").hidden) fecharTicket();
+  if (evento.key === "Escape" && !document.getElementById("modal-recibo-saida").hidden) fecharReciboSaida();
+});
+
+// ---------------------- RECIBO DE SAÍDA / COMPROVANTE DO CLIENTE ----------------------
+
+let ticketReciboAtual = null;
+
+function mostrarReciboSaida(ticket, infoExtra = {}) {
+  if (!ticket) return;
+  ticketReciboAtual = ticket;
+
+  const config = cacheConfiguracoes || {};
+  document.getElementById("recibo-nome-estacionamento").textContent =
+    config.nome_estacionamento || "Estaciona Parking";
+  document.getElementById("recibo-cnpj").textContent = config.cnpj ? `CNPJ: ${config.cnpj}` : "";
+  document.getElementById("recibo-endereco").textContent = config.endereco || "";
+
+  const cidadeUf = [config.cidade, config.estado].filter(Boolean).join(" - ");
+  document.getElementById("recibo-cidade-uf").textContent = cidadeUf;
+  document.getElementById("recibo-telefone").textContent = config.telefone ? `Tel: ${config.telefone}` : "";
+
+  // Dados do veiculo
+  document.getElementById("recibo-numero").textContent = `#${String(ticket.numero).padStart(6, "0")}`;
+  document.getElementById("recibo-placa").textContent = ticket.placa || "—";
+  document.getElementById("recibo-tipo").textContent = ticket.tipo_veiculo || "Carro";
+
+  const vagaRow = document.getElementById("recibo-vaga-row");
+  const vagaEl = document.getElementById("recibo-vaga");
+  if (ticket.vaga != null) {
+    vagaEl.textContent = `Vaga ${ticket.vaga}`;
+    vagaRow.hidden = false;
+  } else {
+    vagaRow.hidden = true;
+  }
+
+  // Horários e permanência
+  const entradaFormatada =
+    ticket.entrada_data && ticket.entrada_hora
+      ? `${ticket.entrada_data} ${ticket.entrada_hora}`
+      : (ticket.entrada || "—");
+  document.getElementById("recibo-entrada").textContent = entradaFormatada;
+
+  const saidaFormatada =
+    ticket.saida_data && ticket.saida_hora
+      ? `${ticket.saida_data} ${ticket.saida_hora}`
+      : (ticket.saida || "—");
+  document.getElementById("recibo-saida").textContent = saidaFormatada;
+
+  document.getElementById("recibo-tempo").textContent = ticket.tempo_estacionado || "—";
+
+  // Financeiro
+  const valor = Number(ticket.valor) || 0;
+  document.getElementById("recibo-valor").textContent = formatarMoeda(valor);
+
+  const formasMap = {
+    dinheiro: "Dinheiro",
+    pix: "PIX",
+    cartao_credito: "Cartão de Crédito",
+    cartao_debito: "Cartão de Débito",
+    cortesia: "Cortesia",
+    mensalista: "Mensalista (Isento)",
+  };
+  const formaNome = formasMap[ticket.forma_pagamento] || ticket.forma_pagamento || "Não informado";
+  document.getElementById("recibo-forma-pagamento").textContent = formaNome;
+
+  const trocoRow = document.getElementById("recibo-troco-row");
+  if (infoExtra.troco && infoExtra.troco > 0) {
+    document.getElementById("recibo-troco").textContent = formatarMoeda(infoExtra.troco);
+    trocoRow.hidden = false;
+  } else {
+    trocoRow.hidden = true;
+  }
+
+  // Atendente e data/hora
+  const usuarioLogado = document.getElementById("header-usuario-nome")?.textContent || "Operador";
+  document.getElementById("recibo-operador").textContent = usuarioLogado;
+
+  const agora = new Date();
+  document.getElementById("recibo-data-emissao").textContent =
+    `${agora.toLocaleDateString()} às ${agora.toLocaleTimeString().slice(0, 5)}`;
+
+  document.getElementById("modal-recibo-saida").hidden = false;
+}
+
+function fecharReciboSaida() {
+  const modal = document.getElementById("modal-recibo-saida");
+  if (modal) modal.hidden = true;
+}
+
+function compartilharReciboWhatsApp(ticket) {
+  if (!ticket) ticket = ticketReciboAtual;
+  if (!ticket) return;
+
+  const config = cacheConfiguracoes || {};
+  const nomeEst = config.nome_estacionamento || "Estacionamento";
+  const valorFmt = formatarMoeda(ticket.valor || 0);
+  const formasMap = {
+    dinheiro: "Dinheiro",
+    pix: "PIX",
+    cartao_credito: "Cartão de Crédito",
+    cartao_debito: "Cartão de Débito",
+    cortesia: "Cortesia",
+    mensalista: "Mensalista (Isento)",
+  };
+  const formaNome = formasMap[ticket.forma_pagamento] || ticket.forma_pagamento || "Dinheiro";
+
+  const texto =
+`🧾 *RECIBO DE PAGAMENTO*
+📍 *${nomeEst}*
+--------------------------------
+🚗 *Veículo:* ${ticket.placa || '—'} (${ticket.tipo_veiculo || 'Carro'})
+🎫 *Ticket:* #${String(ticket.numero).padStart(6, '0')}
+⏱️ *Permanência:* ${ticket.tempo_estacionado || '—'}
+🕒 *Entrada:* ${ticket.entrada || '—'}
+🏁 *Saída:* ${ticket.saida || '—'}
+--------------------------------
+💰 *TOTAL PAGO:* ${valorFmt}
+💳 *Forma:* ${formaNome}
+✅ *Status:* QUITADO
+--------------------------------
+_Agradecemos a preferência! Volte sempre._`;
+
+  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+  window.open(url, "_blank");
+}
+
+document.getElementById("recibo-modal-fechar")?.addEventListener("click", fecharReciboSaida);
+document.getElementById("recibo-modal-imprimir")?.addEventListener("click", () => window.print());
+document.getElementById("recibo-modal-whatsapp")?.addEventListener("click", () => compartilharReciboWhatsApp(ticketReciboAtual));
+document.getElementById("modal-recibo-saida")?.addEventListener("click", (evento) => {
+  if (evento.target === evento.currentTarget) fecharReciboSaida();
 });
 
 // ---------------------- SAIDA ----------------------
 
 let saidaPendente = null; // identificador aguardando escolha da forma de pagamento
 
+// ---------------------- CHECKOUT DE SAÍDA & PAGAMENTO ----------------------
+
+let checkoutDadosAtuais = null;
+let formaPagamentoCheckout = "dinheiro";
+
+function calcularTrocoCheckout() {
+  const inputRecebido = document.getElementById("input-checkout-recebido");
+  const trocoVal = document.getElementById("checkout-troco-val");
+  if (!inputRecebido || !trocoVal || !checkoutDadosAtuais) return;
+
+  const total = Number(checkoutDadosAtuais.valor) || 0;
+  const recebido = parseFloat(inputRecebido.value) || 0;
+
+  if (recebido > total) {
+    trocoVal.textContent = formatarMoeda(recebido - total);
+    trocoVal.style.color = "#059669";
+  } else {
+    trocoVal.textContent = "R$ 0,00";
+    trocoVal.style.color = "#64748b";
+  }
+}
+
 async function registrarSaida(identificador) {
-  // Abre o modal de forma de pagamento antes de confirmar a saida
   saidaPendente = identificador;
-  document.getElementById("modal-forma-saida").hidden = false;
+
+  try {
+    const dadosCalculo = await chamarApi(`/saida/calcular?identificador=${encodeURIComponent(identificador)}`);
+    checkoutDadosAtuais = dadosCalculo;
+
+    const t = dadosCalculo.ticket || {};
+    document.getElementById("checkout-placa").textContent = t.placa || identificador;
+    document.getElementById("checkout-tipo").textContent = t.tipo_veiculo || "Carro";
+    document.getElementById("checkout-vaga").textContent = t.vaga ? `Vaga ${t.vaga}` : "Sem vaga fixa";
+    document.getElementById("checkout-numero-ticket").textContent = `Ticket #${String(t.numero).padStart(6, '0')}`;
+
+    const horaEntrada = t.entrada ? (t.entrada.split(" ")[1] || t.entrada).slice(0, 5) : "--:--";
+    document.getElementById("checkout-entrada").textContent = horaEntrada;
+    document.getElementById("checkout-tempo").textContent = dadosCalculo.tempo_permanencia || t.tempo_estacionado || "--";
+
+    const badgeMensalista = document.getElementById("checkout-badge-mensalista");
+    const valorTotalEl = document.getElementById("checkout-valor-total");
+
+    if (dadosCalculo.eh_mensalista) {
+      if (badgeMensalista) {
+        badgeMensalista.hidden = false;
+        badgeMensalista.textContent = `👤 Mensalista Ativo (${dadosCalculo.mensalista_nome || 'Identificado'}) • Isento de cobrança avulsa`;
+      }
+      valorTotalEl.textContent = "R$ 0,00";
+      valorTotalEl.style.color = "#7c3aed";
+      formaPagamentoCheckout = "mensalista";
+    } else {
+      if (badgeMensalista) badgeMensalista.hidden = true;
+      valorTotalEl.textContent = formatarMoeda(dadosCalculo.valor);
+      valorTotalEl.style.color = "#15803d";
+      formaPagamentoCheckout = "dinheiro";
+    }
+
+    // Marca o botão inicial de forma de pagamento
+    document.querySelectorAll("#forma-opcoes .forma-opcao").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.forma === formaPagamentoCheckout);
+    });
+
+    // Controla painel de troco
+    const boxTroco = document.getElementById("checkout-troco-box");
+    if (boxTroco) {
+      boxTroco.style.display = (!dadosCalculo.eh_mensalista && formaPagamentoCheckout === "dinheiro") ? "flex" : "none";
+    }
+    const inputRecebido = document.getElementById("input-checkout-recebido");
+    if (inputRecebido) inputRecebido.value = "";
+    calcularTrocoCheckout();
+
+    document.getElementById("modal-forma-saida").hidden = false;
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
 }
 
 async function confirmarSaida(identificador, formaPagamento) {
@@ -456,8 +926,23 @@ async function confirmarSaida(identificador, formaPagamento) {
       body: JSON.stringify({ identificador, forma_pagamento: formaPagamento }),
     });
     mostrarToast(dados.mensagem, "success");
+    if (dados.aviso) mostrarToast(dados.aviso, "warning");
+
+    fecharModalForma();
     await carregarDashboard();
     await recarregarAbaAtual();
+
+    // Emite o recibo de saída / pagamento para disponibilizar ao cliente
+    if (dados.ticket) {
+      let trocoValor = 0;
+      const inputRecebido = document.getElementById("input-checkout-recebido");
+      if (inputRecebido && formaPagamento === "dinheiro") {
+        const recebido = parseFloat(inputRecebido.value) || 0;
+        const total = Number(dados.ticket.valor) || 0;
+        if (recebido > total) trocoValor = recebido - total;
+      }
+      mostrarReciboSaida(dados.ticket, { troco: trocoValor });
+    }
   } catch (erro) {
     mostrarToast(erro.message, "error");
   }
@@ -466,6 +951,7 @@ async function confirmarSaida(identificador, formaPagamento) {
 function fecharModalForma() {
   document.getElementById("modal-forma-saida").hidden = true;
   saidaPendente = null;
+  checkoutDadosAtuais = null;
 }
 
 document.getElementById("modal-forma-fechar").addEventListener("click", fecharModalForma);
@@ -474,13 +960,27 @@ document.getElementById("modal-forma-saida").addEventListener("click", (evento) 
   if (evento.target === evento.currentTarget) fecharModalForma();
 });
 
+// Seleção de forma de pagamento no modal
 document.getElementById("forma-opcoes").addEventListener("click", (evento) => {
   const botao = evento.target.closest(".forma-opcao");
   if (!botao) return;
-  const forma = botao.dataset.forma;
-  const identificador = saidaPendente;
-  fecharModalForma();
-  if (identificador) confirmarSaida(identificador, forma);
+  document.querySelectorAll("#forma-opcoes .forma-opcao").forEach((b) => b.classList.remove("active"));
+  botao.classList.add("active");
+  formaPagamentoCheckout = botao.dataset.forma;
+
+  const boxTroco = document.getElementById("checkout-troco-box");
+  if (boxTroco) {
+    const ehMensalista = checkoutDadosAtuais && checkoutDadosAtuais.eh_mensalista;
+    boxTroco.style.display = (!ehMensalista && formaPagamentoCheckout === "dinheiro") ? "flex" : "none";
+  }
+});
+
+document.getElementById("input-checkout-recebido")?.addEventListener("input", calcularTrocoCheckout);
+
+// Botão Confirmar Saída
+document.getElementById("btn-confirmar-checkout")?.addEventListener("click", () => {
+  if (!saidaPendente) return;
+  confirmarSaida(saidaPendente, formaPagamentoCheckout);
 });
 
 // ---------------------- RENDER LISTA DE VEICULOS ----------------------
@@ -501,8 +1001,11 @@ function renderListaVeiculos(veiculos, { permitirSaida }) {
     const item = document.createElement("div");
     item.className = "vehicle-item";
 
-    const dataEntrada = ticket.entrada.split(" ")[0].slice(0, 5);
-    const horaEntrada = ticket.entrada.split(" ")[1] ? ticket.entrada.split(" ")[1].slice(0, 5) : "";
+    const dataEntrada = ticket.entrada ? ticket.entrada.split(" ")[0].slice(0, 5) : "";
+    const horaEntrada = ticket.entrada && ticket.entrada.split(" ")[1] ? ticket.entrada.split(" ")[1].slice(0, 5) : "";
+
+    const ehMensalista = (ticket.observacoes || "").toLowerCase().includes("mensalista") || ticket.forma_pagamento === "mensalista";
+    const badgeMensalistaHtml = ehMensalista ? `<span class="badge-mensalista-patio">👤 Mensalista</span>` : "";
 
     const obsHtml = ticket.observacoes
       ? `<span class="vehicle-obs">${ticket.observacoes}</span>`
@@ -519,21 +1022,26 @@ function renderListaVeiculos(veiculos, { permitirSaida }) {
       `
       : `<button class="btn-print" title="Imprimir ticket" data-acao="imprimir" data-numero="${ticket.numero}">${ICON_PRINT}</button>`;
 
+    const valorNum = ticket.valor != null ? ticket.valor : (ticket.valor_estimado != null ? ticket.valor_estimado : 0);
+    const valorTexto = ehMensalista ? "Isento" : formatarMoeda(valorNum);
+    const classeValor = !ticket.saida ? "vehicle-val-estimado" : "";
+
     item.innerHTML = `
       <div class="vehicle-icon">${iconeVeiculo(ticket.tipo_veiculo)}</div>
       <div class="vehicle-main">
         <div class="vehicle-plate-row">
           <span class="vehicle-plate">${ticket.placa}</span>
           <span class="vehicle-type">${ticket.tipo_veiculo}</span>
+          ${badgeMensalistaHtml}
         </div>
         <div class="vehicle-meta">
-          ${ICON_CLOCK} ${ticket.tempo_estacionado} &middot; ${dataEntrada}, ${horaEntrada}
+          ${ICON_CLOCK} ${ticket.tempo_estacionado || "0min"} &middot; ${dataEntrada}, ${horaEntrada}
         </div>
         ${obsHtml}
       </div>
       <div class="vehicle-right">
         ${statusHtml}
-        <span class="vehicle-value">${formatarMoeda(ticket.valor)}</span>
+        <span class="vehicle-value ${classeValor}" title="${!ticket.saida ? 'Valor acumulado até o momento' : 'Valor final pago'}">${valorTexto}</span>
         ${acoesHtml}
       </div>
     `;
@@ -595,25 +1103,46 @@ async function consultar(termo) {
   }
 }
 
-// ---------------------- BUSCA (CAMPO DE TEXTO) ----------------------
+// ---------------------- BUSCA & FILTROS OPERACIONAIS (PATIO) ----------------------
 
 const inputBusca = document.getElementById("input-busca");
+let filtroTipoVeiculoAtivo = "todos";
+
+// Botoes de filtro por categoria no patio
+document.querySelectorAll("#filtro-tipo-veiculos .btn-filtro-tipo").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#filtro-tipo-veiculos .btn-filtro-tipo").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    filtroTipoVeiculoAtivo = btn.dataset.filtroTipo || "todos";
+    executarBuscaAtual();
+  });
+});
 
 async function executarBuscaAtual() {
-  const termo = inputBusca.value.trim();
+  const termo = inputBusca ? inputBusca.value.trim().toUpperCase() : "";
 
   if (abaAtual === "patio") {
-    if (!termo) return carregarPatio();
-    const filtrados = cacheVeiculosPatio.filter((t) =>
-      t.placa.toUpperCase().includes(termo.toUpperCase()) || String(t.numero).includes(termo)
-    );
+    let filtrados = cacheVeiculosPatio || [];
+    if (filtroTipoVeiculoAtivo && filtroTipoVeiculoAtivo !== "todos") {
+      filtrados = filtrados.filter((t) => (t.tipo_veiculo || "").toLowerCase() === filtroTipoVeiculoAtivo.toLowerCase());
+    }
+    if (termo) {
+      filtrados = filtrados.filter((t) =>
+        (t.placa || "").toUpperCase().includes(termo) || String(t.numero).includes(termo)
+      );
+    }
     renderListaVeiculos(filtrados, { permitirSaida: true });
   } else if (abaAtual === "historico") {
-    if (!termo) return carregarHistorico();
     const dados = await chamarApi(`/historico`);
-    const filtrados = dados.veiculos.filter((t) =>
-      t.placa.toUpperCase().includes(termo.toUpperCase()) || String(t.numero).includes(termo)
-    );
+    let filtrados = dados.veiculos || [];
+    if (filtroTipoVeiculoAtivo && filtroTipoVeiculoAtivo !== "todos") {
+      filtrados = filtrados.filter((t) => (t.tipo_veiculo || "").toLowerCase() === filtroTipoVeiculoAtivo.toLowerCase());
+    }
+    if (termo) {
+      filtrados = filtrados.filter((t) =>
+        (t.placa || "").toUpperCase().includes(termo) || String(t.numero).includes(termo)
+      );
+    }
     renderListaVeiculos(filtrados, { permitirSaida: false });
   } else if (abaAtual === "consultar") {
     await consultar(termo);
@@ -621,10 +1150,12 @@ async function executarBuscaAtual() {
 }
 
 let debounceBusca = null;
-inputBusca.addEventListener("input", () => {
-  clearTimeout(debounceBusca);
-  debounceBusca = setTimeout(executarBuscaAtual, 200);
-});
+if (inputBusca) {
+  inputBusca.addEventListener("input", () => {
+    clearTimeout(debounceBusca);
+    debounceBusca = setTimeout(executarBuscaAtual, 200);
+  });
+}
 
 // ---------------------- ACOES NA LISTA (delegacao de evento) ----------------------
 
@@ -662,7 +1193,11 @@ async function imprimirTicket(numero) {
     return;
   }
 
-  mostrarTicket(ticket);
+  if (ticket.status === "FECHADO") {
+    mostrarReciboSaida(ticket);
+  } else {
+    mostrarTicket(ticket);
+  }
 }
 
 // ---------------------- TABS ----------------------
@@ -729,11 +1264,37 @@ async function carregarFinanceiro() {
     empty.hidden = true;
   }
 
+  // Permissoes de acao para o perfil atual (modulo financeiro)
+  const podeEditarLancamento = temPermissaoModulo("financeiro", "editar");
+  const podeExcluirLancamento = temPermissaoModulo("financeiro", "excluir");
+  const podeCriarLancamento = temPermissaoModulo("financeiro", "criar");
+  const temAcoes = podeEditarLancamento || podeExcluirLancamento;
+
+  // Oculta o botao "Novo lancamento" caso o perfil nao possa criar
+  const btnNovoLancamento = document.getElementById("btn-novo-lancamento");
+  if (btnNovoLancamento) btnNovoLancamento.style.display = podeCriarLancamento ? "" : "none";
+
+  // Oculta a coluna/header de acoes se nao houver nenhuma acao disponivel
+  const headerAcoes = document.getElementById("th-financeiro-acoes");
+  if (headerAcoes) headerAcoes.style.display = temAcoes ? "" : "none";
+
   lancamentos.forEach((lancamento) => {
     const linha = document.createElement("tr");
     const tipoEntrada = lancamento.tipo === "entrada";
     const forma = FORMAS_LABEL[lancamento.forma_pagamento] || lancamento.forma_pagamento;
     const origem = lancamento.origem === "ticket" ? " (ticket)" : "";
+
+    const acoesHtml = temAcoes ? `
+      <td class="col-acoes">
+        ${podeEditarLancamento ? `
+        <button type="button" class="btn-acao" data-acao-lancamento="editar" data-id="${lancamento.id}" title="Editar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>` : ""}
+        ${podeExcluirLancamento ? `
+        <button type="button" class="btn-acao btn-acao-danger" data-acao-lancamento="excluir" data-id="${lancamento.id}" title="Excluir">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>` : ""}
+      </td>` : "";
 
     linha.innerHTML = `
       <td>${formatarDataHora(lancamento.data)}</td>
@@ -743,14 +1304,7 @@ async function carregarFinanceiro() {
       </td>
       <td><span class="badge">${forma}</span></td>
       <td class="${tipoEntrada ? "valor-entrada" : "valor-saida"}">${tipoEntrada ? "+" : "−"} ${formatarMoeda(lancamento.valor)}</td>
-      <td class="col-acoes">
-        <button type="button" class="btn-acao" data-acao-lancamento="editar" data-id="${lancamento.id}" title="Editar">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <button type="button" class="btn-acao btn-acao-danger" data-acao-lancamento="excluir" data-id="${lancamento.id}" title="Excluir">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        </button>
-      </td>
+      ${acoesHtml}
     `;
     corpo.appendChild(linha);
   });
@@ -878,8 +1432,12 @@ async function carregarUsuarios() {
     const dados = await chamarApi("/usuarios");
     usuarios = dados.usuarios || [];
   } catch (erro) {
+    if (erro.payload && erro.payload.erro && erro.payload.erro.includes("permissao")) {
+      corpo.innerHTML = '<tr><td colspan="7" class="table-empty">Acesso restrito ao módulo de usuários.</td></tr>';
+      return;
+    }
     mostrarToast(erro.message, "error");
-    corpo.innerHTML = '<tr><td colspan="6" class="table-empty">Erro ao carregar usuários.</td></tr>';
+    corpo.innerHTML = '<tr><td colspan="7" class="table-empty">Erro ao carregar usuários.</td></tr>';
     return;
   }
 
@@ -1276,11 +1834,17 @@ async function abrirModalTrocarEmpresa() {
         mostrarToast(dados.mensagem, "success");
         sessionEmpresaId = id;
         overlay.hidden = true;
+        if (dados.empresa) {
+          const nomeNovo = dados.empresa.nome_fantasia || dados.empresa.razao_social;
+          if (nomeNovo) aplicarNomeSistema(nomeNovo);
+        }
         await carregarSessao();
         await carregarEmpresas();
         await carregarDashboard();
         await carregarPatio();
-        await carregarUsuarios();
+        if (document.querySelector(".view-active#view-usuarios")) {
+          await carregarUsuarios();
+        }
         await carregarConfiguracoes();
         recarregarAbaAtual();
       } catch (erro) {
@@ -1292,7 +1856,17 @@ async function abrirModalTrocarEmpresa() {
 
 document.getElementById("btn-trocar-empresa").addEventListener("click", abrirModalTrocarEmpresa);
 document.getElementById("modal-trocar-empresa-fechar").addEventListener("click", () => {
+document.getElementById("btn-trocar-empresa")?.addEventListener("click", abrirModalTrocarEmpresa);
+document.getElementById("modal-trocar-empresa-fechar")?.addEventListener("click", () => {
   document.getElementById("modal-trocar-empresa").hidden = true;
+});
+document.getElementById("btn-trocar-empresa-cancelar")?.addEventListener("click", () => {
+  document.getElementById("modal-trocar-empresa").hidden = true;
+});
+document.getElementById("modal-trocar-empresa")?.addEventListener("click", (evento) => {
+  if (evento.target === evento.currentTarget) {
+    document.getElementById("modal-trocar-empresa").hidden = true;
+  }
 });
 
 // ---------------------- CLIENTES (MENSALISTAS) ----------------------
@@ -1487,7 +2061,7 @@ document.getElementById("tabela-clientes").addEventListener("click", async (even
   }
 });
 
-// ---------------------- CONFIGURACOES ----------------------
+// ---------------------- CONFIGURACOES & PREFERENCIAS ----------------------
 
 function aplicarNomeSistema(nome) {
   const nomeFinal = (nome || "").trim() || "Estaciona Parking";
@@ -1499,167 +2073,376 @@ function aplicarNomeSistema(nome) {
   if (elTitulo) elTitulo.textContent = `${nomeFinal} - Controle por ticket`;
 }
 
+// Mascaras de entrada
+function mascararCNPJ(valor) {
+  const digits = String(valor || "").replace(/\D/g, "").slice(0, 14);
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function mascararTelefone(valor) {
+  const digits = String(valor || "").replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 10) {
+    return digits
+      .replace(/^(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
+  }
+  return digits
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+function mascararCEP(valor) {
+  const digits = String(valor || "").replace(/\D/g, "").slice(0, 8);
+  return digits.replace(/^(\d{5})(\d)/, "$1-$2");
+}
+
+function atualizarAlertaVagas() {
+  const total = Number(document.getElementById("input-config-total-vagas")?.value || 0);
+  const carro = Number(document.getElementById("input-config-vagas-carro")?.value || 0);
+  const moto = Number(document.getElementById("input-config-vagas-moto")?.value || 0);
+  const cg = Number(document.getElementById("input-config-vagas-carro-grande")?.value || 0);
+  const cam = Number(document.getElementById("input-config-vagas-caminhonete")?.value || 0);
+
+  const soma = carro + moto + cg + cam;
+  const elAlerta = document.getElementById("alerta-soma-vagas");
+  const elTexto = document.getElementById("texto-soma-vagas");
+  if (!elAlerta || !elTexto) return;
+
+  if (soma > total && total > 0) {
+    elAlerta.classList.add("alerta-aviso");
+    elTexto.innerHTML = `⚠️ <strong>Atenção:</strong> A soma das categorias reservadas (${soma} vagas) excede a capacidade total do pátio (${total} vagas)!`;
+  } else if (soma > 0) {
+    elAlerta.classList.remove("alerta-aviso");
+    elTexto.innerHTML = `✓ Capacidade total: <strong>${total}</strong> vagas (Categorias reservadas: <strong>${soma}</strong> / Livres para rotativo comum: <strong>${Math.max(0, total - soma)}</strong>)`;
+  } else {
+    elAlerta.classList.remove("alerta-aviso");
+    elTexto.innerHTML = `✓ Capacidade total: <strong>${total}</strong> vagas (nenhuma restrição por categoria cadastrada)`;
+  }
+}
+
+async function atualizarDiagnosticoSistema(dados) {
+  const totalVagas = dados?.total_vagas ?? (cacheConfiguracoes?.total_vagas || 0);
+  const elTotal = document.getElementById("diag-vagas-total");
+  const elOcupadas = document.getElementById("diag-vagas-ocupadas");
+  const elLivres = document.getElementById("diag-vagas-livres");
+
+  if (elTotal) elTotal.textContent = `${totalVagas} vagas`;
+  try {
+    const dash = await chamarApi("/dashboard/resumo");
+    if (dash) {
+      const ocup = dash.no_patio_agora ?? 0;
+      if (elOcupadas) elOcupadas.textContent = `${ocup} veículos`;
+      if (elLivres) elLivres.textContent = `${Math.max(0, totalVagas - ocup)} livres`;
+    }
+  } catch (e) {
+    // Silencioso se nao carregar dashboard
+  }
+}
+
+function desenharBarcodePreview() {
+  const svg = document.getElementById("ticket-preview-barcode");
+  if (!svg) return;
+  svg.innerHTML = `
+    <rect x="2" y="0" width="3" height="40" fill="#111" />
+    <rect x="7" y="0" width="2" height="40" fill="#111" />
+    <rect x="11" y="0" width="4" height="40" fill="#111" />
+    <rect x="17" y="0" width="1" height="40" fill="#111" />
+    <rect x="20" y="0" width="3" height="40" fill="#111" />
+    <rect x="25" y="0" width="5" height="40" fill="#111" />
+    <rect x="32" y="0" width="2" height="40" fill="#111" />
+    <rect x="36" y="0" width="4" height="40" fill="#111" />
+    <rect x="42" y="0" width="2" height="40" fill="#111" />
+    <rect x="46" y="0" width="6" height="40" fill="#111" />
+    <rect x="54" y="0" width="2" height="40" fill="#111" />
+    <rect x="58" y="0" width="3" height="40" fill="#111" />
+    <rect x="63" y="0" width="5" height="40" fill="#111" />
+    <rect x="70" y="0" width="2" height="40" fill="#111" />
+    <rect x="74" y="0" width="4" height="40" fill="#111" />
+    <rect x="80" y="0" width="3" height="40" fill="#111" />
+    <rect x="85" y="0" width="2" height="40" fill="#111" />
+    <rect x="89" y="0" width="5" height="40" fill="#111" />
+    <rect x="96" y="0" width="3" height="40" fill="#111" />
+    <rect x="101" y="0" width="2" height="40" fill="#111" />
+  `;
+  svg.setAttribute("viewBox", "0 0 106 40");
+}
+
+function atualizarPreviewTicket() {
+  const nome = document.getElementById("input-config-nome")?.value.trim() || "Estaciona Parking";
+  const cnpj = document.getElementById("input-config-cnpj")?.value.trim() || "";
+  const endereco = document.getElementById("input-config-endereco")?.value.trim() || "";
+  const telefone = document.getElementById("input-config-telefone")?.value.trim() || "";
+  const cabecalho = document.getElementById("input-config-cabecalho-ticket")?.value.trim() || "";
+  const rodape = document.getElementById("input-config-rodape-ticket")?.value.trim() || "";
+
+  const formato = document.getElementById("input-config-ticket-formato")?.value || "80mm";
+  const exibirCnpj = document.getElementById("input-config-ticket-cnpj")?.checked !== false;
+  const exibirContato = document.getElementById("input-config-ticket-contato")?.checked !== false;
+  const exibirBarcode = document.getElementById("input-config-ticket-barcode")?.checked !== false;
+
+  const elPreview = document.getElementById("ticket-preview");
+  if (elPreview) {
+    elPreview.classList.remove("papel-58mm", "papel-a4");
+    if (formato === "58mm") elPreview.classList.add("papel-58mm");
+    else if (formato === "A4") elPreview.classList.add("papel-a4");
+  }
+
+  const elNome = document.getElementById("ticket-preview-nome");
+  if (elNome) elNome.textContent = nome;
+
+  const elCnpj = document.getElementById("ticket-preview-cnpj");
+  if (elCnpj) {
+    elCnpj.textContent = cnpj ? `CNPJ: ${cnpj}` : "";
+    elCnpj.style.display = (exibirCnpj && cnpj) ? "block" : "none";
+  }
+
+  const elEndereco = document.getElementById("ticket-preview-endereco");
+  if (elEndereco) {
+    elEndereco.textContent = endereco;
+    elEndereco.style.display = (exibirContato && endereco) ? "block" : "none";
+  }
+
+  const elTelefone = document.getElementById("ticket-preview-telefone");
+  if (elTelefone) {
+    elTelefone.textContent = telefone ? `Tel: ${telefone}` : "";
+    elTelefone.style.display = (exibirContato && telefone) ? "block" : "none";
+  }
+
+  const barcodeBox = document.getElementById("ticket-preview-barcode-box");
+  if (barcodeBox) {
+    barcodeBox.style.display = exibirBarcode ? "block" : "none";
+    if (exibirBarcode) desenharBarcodePreview();
+  }
+
+  const headerEl = document.querySelector(".ticket-preview-header");
+  if (headerEl) {
+    const cabecalhoExistente = headerEl.querySelector(".ticket-preview-custom-header");
+    if (cabecalhoExistente) cabecalhoExistente.remove();
+    if (cabecalho) {
+      const div = document.createElement("div");
+      div.className = "ticket-preview-custom-header";
+      div.style.whiteSpace = "pre-line";
+      div.style.marginTop = "6px";
+      div.style.lineHeight = "1.4";
+      div.textContent = cabecalho;
+      headerEl.appendChild(div);
+    }
+  }
+
+  const elRodape = document.getElementById("ticket-preview-rodape");
+  if (elRodape) elRodape.textContent = rodape;
+}
+
 async function carregarConfiguracoes() {
   try {
     const dados = await chamarApi("/configuracoes");
     cacheConfiguracoes = dados;
     carregarTiposVeiculo();
-    // Identificacao
-    document.getElementById("input-config-nome").value = dados.nome_estacionamento || "";
-    document.getElementById("input-config-cnpj").value = dados.cnpj || "";
-    document.getElementById("input-config-telefone").value = dados.telefone || "";
-    document.getElementById("input-config-endereco").value = dados.endereco || "";
-    document.getElementById("input-config-cidade").value = dados.cidade || "";
-    document.getElementById("input-config-estado").value = dados.estado || "";
-    document.getElementById("input-config-cep").value = dados.cep || "";
 
-    // Funcionamento
-    document.getElementById("input-config-horario-abertura").value = dados.horario_abertura || "";
-    document.getElementById("input-config-horario-fechamento").value = dados.horario_fechamento || "";
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val ?? "";
+    };
+    const setChk = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.checked = !!val;
+    };
 
-    // Vagas
-    document.getElementById("input-config-total-vagas").value = dados.total_vagas;
-    document.getElementById("input-config-vagas-carro").value = dados.vagas_carro ?? 0;
-    document.getElementById("input-config-vagas-moto").value = dados.vagas_moto ?? 0;
-    document.getElementById("input-config-vagas-carro-grande").value = dados.vagas_carro_grande ?? 0;
-    document.getElementById("input-config-vagas-caminhonete").value = dados.vagas_caminhonete ?? 0;
+    // 1. Identificacao & Empresa
+    setVal("input-config-nome", dados.nome_estacionamento);
+    setVal("input-config-cnpj", dados.cnpj);
+    setVal("input-config-telefone", dados.telefone);
+    setVal("input-config-endereco", dados.endereco);
+    setVal("input-config-cidade", dados.cidade);
+    setVal("input-config-estado", dados.estado);
+    setVal("input-config-cep", dados.cep);
 
-    // Precos
-    document.getElementById("input-config-primeira-hora").value = dados.valor_primeira_hora;
-    document.getElementById("input-config-hora-adicional").value = dados.valor_hora_adicional;
-    document.getElementById("input-config-valor-mensal").value = dados.valor_mensal;
+    // 2. Horarios de funcionamento
+    setVal("input-config-horario-abertura", dados.horario_abertura);
+    setVal("input-config-horario-fechamento", dados.horario_fechamento);
 
-    // Ticket
-    document.getElementById("input-config-cabecalho-ticket").value = dados.cabecalho_ticket || "";
-    document.getElementById("input-config-rodape-ticket").value = dados.rodape_ticket || "";
+    // 3. Vagas & Patio
+    setVal("input-config-total-vagas", dados.total_vagas);
+    setVal("input-config-vagas-carro", dados.vagas_carro ?? 0);
+    setVal("input-config-vagas-moto", dados.vagas_moto ?? 0);
+    setVal("input-config-vagas-carro-grande", dados.vagas_carro_grande ?? 0);
+    setVal("input-config-vagas-caminhonete", dados.vagas_caminhonete ?? 0);
+    setChk("input-config-bloquear-sem-vaga", dados.bloquear_sem_vaga);
+    setChk("input-config-exigir-observacao", dados.exigir_observacao !== false);
 
-    // Regras
-    document.getElementById("input-config-bloquear-sem-vaga").checked = !!dados.bloquear_sem_vaga;
-    document.getElementById("input-config-exigir-observacao").checked = dados.exigir_observacao !== false;
+    // 4. Recebimentos PIX
+    setVal("input-config-pix-tipo", dados.pix_tipo);
+    setVal("input-config-pix-chave", dados.pix_chave);
 
-    // PIX
-    document.getElementById("input-config-pix-tipo").value = dados.pix_tipo || "";
-    document.getElementById("input-config-pix-chave").value = dados.pix_chave || "";
+    // 5. Cupom & Impressao
+    setVal("input-config-cabecalho-ticket", dados.cabecalho_ticket);
+    setVal("input-config-rodape-ticket", dados.rodape_ticket);
+    setVal("input-config-ticket-formato", dados.ticket_formato_papel || "80mm");
+    setChk("input-config-ticket-cnpj", dados.ticket_exibir_cnpj !== false);
+    setChk("input-config-ticket-contato", dados.ticket_exibir_contato !== false);
+    setChk("input-config-ticket-barcode", dados.ticket_exibir_codigo_barras !== false);
 
     aplicarNomeSistema(dados.nome_estacionamento);
+    atualizarAlertaVagas();
     atualizarPreviewTicket();
+    atualizarDiagnosticoSistema(dados);
   } catch (erro) {
-    mostrarToast(erro.message, "error");
+    console.warn("Nao foi possivel carregar configuracoes:", erro.message);
   }
 
-  // Carrega a tabela de precos (regras avancadas)
+  // Carrega a tabela de precos (regras avancadas e sincronizacao)
   try {
     const dadosTabela = await chamarApi("/tabela-precos");
     const tp = dadosTabela.tabela_precos || {};
-    document.getElementById("input-config-tp-fracionamento").value = tp.fracionamento_minutos ?? 60;
-    document.getElementById("input-config-tp-tarifa-minima").value = tp.tarifa_minima ?? "";
-    document.getElementById("input-config-tp-meia-min").value = tp.meia_estadia_minutos ?? "";
-    document.getElementById("input-config-tp-meia-valor").value = tp.meia_estadia_valor ?? "";
-    document.getElementById("input-config-tp-tolerancia").value = tp.tolerancia_minutos ?? "";
-    document.getElementById("input-config-tp-noturno").value = tp.valor_noturno ?? "";
-    document.getElementById("input-config-tp-fim-semana").value = tp.fim_semana ?? "";
-    document.getElementById("input-config-tp-feriados").value = tp.feriados ?? "";
-    document.getElementById("input-config-tp-ticket-perdido").value = tp.valor_ticket_perdido ?? "";
-    document.getElementById("input-config-tp-pernoite").value = tp.pernoite_valor ?? "";
-    document.getElementById("input-config-tp-pernoite-horas").value = tp.pernoite_a_partir_horas ?? "";
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val ?? "";
+    };
 
-    // Precos por tipo de veiculo
-    document.getElementById("input-config-tp-carro-primeira").value = tp.primeira_hora ?? "";
-    document.getElementById("input-config-tp-carro-adicional").value = tp.hora_adicional ?? "";
-    document.getElementById("input-config-tp-carro-diaria").value = tp.diaria ?? "";
-    document.getElementById("input-config-tp-carro-minuto").value = tp.valor_minuto ?? "";
-    document.getElementById("input-config-tp-carro-max").value = tp.valor_maximo_diario ?? "";
-    document.getElementById("input-config-tp-carro-mensal").value = tp.mensal ?? "";
+    setVal("input-config-tp-fracionamento", tp.fracionamento_minutos ?? 60);
+    setVal("input-config-tp-tarifa-minima", tp.tarifa_minima);
+    setVal("input-config-tp-meia-min", tp.meia_estadia_minutos);
+    setVal("input-config-tp-meia-valor", tp.meia_estadia_valor);
+    setVal("input-config-tp-tolerancia", tp.tolerancia_minutos);
+    setVal("input-config-tp-noturno", tp.valor_noturno);
+    setVal("input-config-tp-fim-semana", tp.fim_semana);
+    setVal("input-config-tp-feriados", tp.feriados);
+    setVal("input-config-tp-ticket-perdido", tp.valor_ticket_perdido);
+    setVal("input-config-tp-pernoite", tp.pernoite_valor);
+    setVal("input-config-tp-pernoite-horas", tp.pernoite_a_partir_horas);
 
-    document.getElementById("input-config-tp-moto-primeira").value = tp.moto_primeira_hora ?? "";
-    document.getElementById("input-config-tp-moto-adicional").value = tp.moto_hora_adicional ?? "";
-    document.getElementById("input-config-tp-moto-diaria").value = tp.moto_diaria ?? "";
-    document.getElementById("input-config-tp-moto-minuto").value = tp.moto_valor_minuto ?? "";
-    document.getElementById("input-config-tp-moto-max").value = tp.moto_valor_maximo_diario ?? "";
-    document.getElementById("input-config-tp-moto-mensal").value = tp.moto_mensal ?? "";
+    // Carro (valores sincronizados com fallback da configuracao)
+    setVal("input-config-tp-carro-primeira", tp.primeira_hora ?? cacheConfiguracoes?.valor_primeira_hora ?? "");
+    setVal("input-config-tp-carro-adicional", tp.hora_adicional ?? cacheConfiguracoes?.valor_hora_adicional ?? "");
+    setVal("input-config-tp-carro-diaria", tp.diaria);
+    setVal("input-config-tp-carro-minuto", tp.valor_minuto);
+    setVal("input-config-tp-carro-max", tp.valor_maximo_diario);
+    setVal("input-config-tp-carro-mensal", tp.mensal ?? cacheConfiguracoes?.valor_mensal ?? "");
 
-    document.getElementById("input-config-tp-cg-primeira").value = tp.carro_grande_primeira_hora ?? "";
-    document.getElementById("input-config-tp-cg-adicional").value = tp.carro_grande_hora_adicional ?? "";
-    document.getElementById("input-config-tp-cg-diaria").value = tp.carro_grande_diaria ?? "";
-    document.getElementById("input-config-tp-cg-minuto").value = tp.carro_grande_valor_minuto ?? "";
-    document.getElementById("input-config-tp-cg-max").value = tp.carro_grande_valor_maximo_diario ?? "";
-    document.getElementById("input-config-tp-cg-mensal").value = tp.carro_grande_mensal ?? "";
+    // Moto
+    setVal("input-config-tp-moto-primeira", tp.moto_primeira_hora);
+    setVal("input-config-tp-moto-adicional", tp.moto_hora_adicional);
+    setVal("input-config-tp-moto-diaria", tp.moto_diaria);
+    setVal("input-config-tp-moto-minuto", tp.moto_valor_minuto);
+    setVal("input-config-tp-moto-max", tp.moto_valor_maximo_diario);
+    setVal("input-config-tp-moto-mensal", tp.moto_mensal);
 
-    document.getElementById("input-config-tp-cam-primeira").value = tp.caminhonete_primeira_hora ?? "";
-    document.getElementById("input-config-tp-cam-adicional").value = tp.caminhonete_hora_adicional ?? "";
-    document.getElementById("input-config-tp-cam-diaria").value = tp.caminhonete_diaria ?? "";
-    document.getElementById("input-config-tp-cam-minuto").value = tp.caminhonete_valor_minuto ?? "";
-    document.getElementById("input-config-tp-cam-max").value = tp.caminhonete_valor_maximo_diario ?? "";
-    document.getElementById("input-config-tp-cam-mensal").value = tp.caminhonete_mensal ?? "";
+    // Carro Grande
+    setVal("input-config-tp-cg-primeira", tp.carro_grande_primeira_hora);
+    setVal("input-config-tp-cg-adicional", tp.carro_grande_hora_adicional);
+    setVal("input-config-tp-cg-diaria", tp.carro_grande_diaria);
+    setVal("input-config-tp-cg-minuto", tp.carro_grande_valor_minuto);
+    setVal("input-config-tp-cg-max", tp.carro_grande_valor_maximo_diario);
+    setVal("input-config-tp-cg-mensal", tp.carro_grande_mensal);
+
+    // Caminhonete
+    setVal("input-config-tp-cam-primeira", tp.caminhonete_primeira_hora);
+    setVal("input-config-tp-cam-adicional", tp.caminhonete_hora_adicional);
+    setVal("input-config-tp-cam-diaria", tp.caminhonete_diaria);
+    setVal("input-config-tp-cam-minuto", tp.caminhonete_valor_minuto);
+    setVal("input-config-tp-cam-max", tp.caminhonete_valor_maximo_diario);
+    setVal("input-config-tp-cam-mensal", tp.caminhonete_mensal);
   } catch (erro) {
-    // tabela de precos pode nao existir ainda; ignora
+    // tabela de precos pode nao existir ainda; ignora silenciosamente
   }
 }
 
-function atualizarPreviewTicket() {
-  const nome = document.getElementById("input-config-nome").value.trim() || "Estaciona Parking";
-  const endereco = document.getElementById("input-config-endereco").value.trim();
-  const telefone = document.getElementById("input-config-telefone").value.trim();
-  const cabecalho = document.getElementById("input-config-cabecalho-ticket").value.trim();
-  const rodape = document.getElementById("input-config-rodape-ticket").value.trim();
-
-  document.getElementById("ticket-preview-nome").textContent = nome;
-  document.getElementById("ticket-preview-endereco").textContent = endereco;
-  document.getElementById("ticket-preview-telefone").textContent = telefone;
-
-  const headerEl = document.querySelector(".ticket-preview-header");
-  const cabecalhoExistente = headerEl.querySelector(".ticket-preview-custom-header");
-  if (cabecalhoExistente) cabecalhoExistente.remove();
-  if (cabecalho) {
-    const div = document.createElement("div");
-    div.className = "ticket-preview-custom-header";
-    div.style.whiteSpace = "pre-line";
-    div.style.marginTop = "6px";
-    div.style.lineHeight = "1.4";
-    div.textContent = cabecalho;
-    headerEl.appendChild(div);
-  }
-
-  document.getElementById("ticket-preview-rodape").textContent = rodape;
+// Atualiza preview do ticket e alertas ao digitar
+const inputCnpjCfg = document.getElementById("input-config-cnpj");
+if (inputCnpjCfg) {
+  inputCnpjCfg.addEventListener("input", (e) => {
+    e.target.value = mascararCNPJ(e.target.value);
+    atualizarPreviewTicket();
+  });
+}
+const inputTelefoneCfg = document.getElementById("input-config-telefone");
+if (inputTelefoneCfg) {
+  inputTelefoneCfg.addEventListener("input", (e) => {
+    e.target.value = mascararTelefone(e.target.value);
+    atualizarPreviewTicket();
+  });
+}
+const inputCepCfg = document.getElementById("input-config-cep");
+if (inputCepCfg) {
+  inputCepCfg.addEventListener("input", (e) => {
+    e.target.value = mascararCEP(e.target.value);
+  });
+}
+const inputEstadoCfg = document.getElementById("input-config-estado");
+if (inputEstadoCfg) {
+  inputEstadoCfg.addEventListener("input", (e) => {
+    e.target.value = (e.target.value || "").toUpperCase().slice(0, 2);
+  });
 }
 
-// Atualiza a preview do ticket enquanto o usuario digita
-["input-config-nome", "input-config-endereco", "input-config-telefone",
- "input-config-cabecalho-ticket", "input-config-rodape-ticket"].forEach((id) => {
+// Alerta dinâmico de vagas
+["input-config-total-vagas", "input-config-vagas-carro", "input-config-vagas-moto",
+ "input-config-vagas-carro-grande", "input-config-vagas-caminhonete"].forEach((id) => {
   const el = document.getElementById(id);
-  if (el) el.addEventListener("input", atualizarPreviewTicket);
+  if (el) el.addEventListener("input", atualizarAlertaVagas);
 });
+
+// Atualizacao da preview de ticket
+["input-config-nome", "input-config-endereco", "input-config-cabecalho-ticket",
+ "input-config-rodape-ticket", "input-config-ticket-formato", "input-config-ticket-cnpj",
+ "input-config-ticket-contato", "input-config-ticket-barcode"].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener("input", atualizarPreviewTicket);
+    el.addEventListener("change", atualizarPreviewTicket);
+  }
+});
+
+// Botao de backup na aba de sistema
+const btnSistemaBackup = document.getElementById("btn-sistema-backup");
+if (btnSistemaBackup) {
+  btnSistemaBackup.addEventListener("click", () => {
+    window.open("/api/backup", "_blank");
+  });
+}
 
 document.getElementById("form-configuracoes").addEventListener("submit", async (evento) => {
   evento.preventDefault();
 
   const botaoSalvar = evento.target.querySelector(".btn-salvar-config");
-  botaoSalvar.disabled = true;
+  if (botaoSalvar) botaoSalvar.disabled = true;
+
+  const valorPrimeira = Number(document.getElementById("input-config-tp-carro-primeira")?.value || 0);
+  const valorAdicional = Number(document.getElementById("input-config-tp-carro-adicional")?.value || 0);
+  const valorMensal = Number(document.getElementById("input-config-tp-carro-mensal")?.value || 0);
 
   const payload = {
-    nome_estacionamento: document.getElementById("input-config-nome").value.trim(),
-    cnpj: document.getElementById("input-config-cnpj").value.trim(),
-    telefone: document.getElementById("input-config-telefone").value.trim(),
-    endereco: document.getElementById("input-config-endereco").value.trim(),
-    cidade: document.getElementById("input-config-cidade").value.trim(),
-    estado: document.getElementById("input-config-estado").value.trim(),
-    cep: document.getElementById("input-config-cep").value.trim(),
-    horario_abertura: document.getElementById("input-config-horario-abertura").value.trim(),
-    horario_fechamento: document.getElementById("input-config-horario-fechamento").value.trim(),
-    total_vagas: Number(document.getElementById("input-config-total-vagas").value),
-    vagas_carro: Number(document.getElementById("input-config-vagas-carro").value || 0),
-    vagas_moto: Number(document.getElementById("input-config-vagas-moto").value || 0),
-    vagas_carro_grande: Number(document.getElementById("input-config-vagas-carro-grande").value || 0),
-    vagas_caminhonete: Number(document.getElementById("input-config-vagas-caminhonete").value || 0),
-    valor_primeira_hora: Number(document.getElementById("input-config-primeira-hora").value),
-    valor_hora_adicional: Number(document.getElementById("input-config-hora-adicional").value),
-    valor_mensal: Number(document.getElementById("input-config-valor-mensal").value),
-    cabecalho_ticket: document.getElementById("input-config-cabecalho-ticket").value.trim(),
-    rodape_ticket: document.getElementById("input-config-rodape-ticket").value.trim(),
-    bloquear_sem_vaga: document.getElementById("input-config-bloquear-sem-vaga").checked,
-    exigir_observacao: document.getElementById("input-config-exigir-observacao").checked,
-    pix_tipo: document.getElementById("input-config-pix-tipo").value.trim(),
-    pix_chave: document.getElementById("input-config-pix-chave").value.trim(),
+    nome_estacionamento: document.getElementById("input-config-nome")?.value.trim() || "",
+    cnpj: document.getElementById("input-config-cnpj")?.value.trim() || "",
+    telefone: document.getElementById("input-config-telefone")?.value.trim() || "",
+    endereco: document.getElementById("input-config-endereco")?.value.trim() || "",
+    cidade: document.getElementById("input-config-cidade")?.value.trim() || "",
+    estado: (document.getElementById("input-config-estado")?.value || "").trim().toUpperCase(),
+    cep: document.getElementById("input-config-cep")?.value.trim() || "",
+    horario_abertura: document.getElementById("input-config-horario-abertura")?.value.trim() || "",
+    horario_fechamento: document.getElementById("input-config-horario-fechamento")?.value.trim() || "",
+    total_vagas: Number(document.getElementById("input-config-total-vagas")?.value || 1),
+    vagas_carro: Number(document.getElementById("input-config-vagas-carro")?.value || 0),
+    vagas_moto: Number(document.getElementById("input-config-vagas-moto")?.value || 0),
+    vagas_carro_grande: Number(document.getElementById("input-config-vagas-carro-grande")?.value || 0),
+    vagas_caminhonete: Number(document.getElementById("input-config-vagas-caminhonete")?.value || 0),
+    valor_primeira_hora: valorPrimeira,
+    valor_hora_adicional: valorAdicional,
+    valor_mensal: valorMensal,
+    cabecalho_ticket: document.getElementById("input-config-cabecalho-ticket")?.value.trim() || "",
+    rodape_ticket: document.getElementById("input-config-rodape-ticket")?.value.trim() || "",
+    ticket_formato_papel: document.getElementById("input-config-ticket-formato")?.value || "80mm",
+    ticket_exibir_cnpj: document.getElementById("input-config-ticket-cnpj")?.checked !== false,
+    ticket_exibir_contato: document.getElementById("input-config-ticket-contato")?.checked !== false,
+    ticket_exibir_codigo_barras: document.getElementById("input-config-ticket-barcode")?.checked !== false,
+    bloquear_sem_vaga: !!document.getElementById("input-config-bloquear-sem-vaga")?.checked,
+    exigir_observacao: !!document.getElementById("input-config-exigir-observacao")?.checked,
+    pix_tipo: document.getElementById("input-config-pix-tipo")?.value.trim() || "",
+    pix_chave: document.getElementById("input-config-pix-chave")?.value.trim() || "",
   };
 
   try {
@@ -1673,7 +2456,7 @@ document.getElementById("form-configuracoes").addEventListener("submit", async (
   } catch (erro) {
     mostrarToast(erro.message, "error");
   } finally {
-    botaoSalvar.disabled = false;
+    if (botaoSalvar) botaoSalvar.disabled = false;
   }
 });
 
@@ -1769,9 +2552,12 @@ document.querySelectorAll("#tabs-config .tab").forEach((botaoTab) => {
 });
 
 // Botao "Gerenciar formas de pagamento" -> vai para a view de formas
-document.getElementById("btn-config-ir-formas").addEventListener("click", () => {
-  mostrarView("view-formas-pagamento");
-});
+const btnIrFormas = document.getElementById("btn-config-ir-formas");
+if (btnIrFormas) {
+  btnIrFormas.addEventListener("click", () => {
+    mostrarView("view-formas-pagamento");
+  });
+}
 
 // ---------------------- TIPOS DE VEICULO ----------------------
 
@@ -2011,101 +2797,32 @@ document.getElementById("btn-adicionar-tipo-veiculo").addEventListener("click", 
   }
 });
 
-// ---------------------- FUNCOES E PERMISSOES ----------------------
+/// ---------------------- FUNCOES E PERMISSOES (RBAC) ----------------------
 
 let permissoesMatriz = null;
 let perfilUsuarioAtual = null;
 let permissoesPerfis = [];
 let permissoesModulos = [];
 let permissoesAcoes = [];
+let permissoesCategorias = [];
+let permissoesAcoesPorModulo = {};
 let permissoesPerfisDetalhes = [];
 let perfilSelecionado = null;
 
+// Verifica se o perfil atual tem determinada acao ("ver", "criar", "editar",
+// "excluir") em um modulo da matriz de permissoes. Admin sempre tem acesso.
+function temPermissaoModulo(modulo, acao = "ver") {
+  const perfil = perfilUsuarioAtual;
+  if (!perfil || perfil === "admin") return true;
+  return Boolean(
+    permissoesMatriz &&
+    permissoesMatriz[modulo] &&
+    permissoesMatriz[modulo][perfil] &&
+    permissoesMatriz[modulo][perfil].includes(acao)
+  );
+}
+
 const PERFIS_BASE = ["admin", "supervisor", "operador"];
-
-const PERMISSOES_ACAO_LABEL = {
-  ver: "Ver",
-  criar: "Criar",
-  editar: "Editar",
-  excluir: "Excluir",
-  autorizar: "Autorizar",
-  fechar_caixa: "Fechar caixa",
-  estornar: "Estornar",
-  cancelar: "Cancelar",
-};
-
-const PERMISSOES_ACAO_ICON = {
-  ver: "O",
-  criar: "+",
-  editar: "E",
-  excluir: "X",
-  autorizar: "A",
-  fechar_caixa: "F",
-  estornar: "R",
-  cancelar: "C",
-};
-
-const PERMISSOES_MODULO_LABEL = {
-  operacao: "Visão Geral / Pátio",
-  caixa: "Caixa",
-  pagamentos: "Pagamentos",
-  formas_pagamento: "Formas de Pagamento",
-  tabela_precos: "Tabela de Preços",
-  descontos: "Descontos",
-  cortesias: "Cortesias",
-  mensalistas: "Mensalistas",
-  convenios: "Convênios",
-  contas_receber: "Contas a Receber",
-  estornos: "Estornos",
-  auditoria: "Auditoria",
-  dashboard_financeiro: "Dashboard Financeiro",
-  relatorios: "Relatórios",
-  usuarios: "Usuários",
-  clientes: "Clientes",
-  financeiro: "Lançamentos Financeiros",
-  configuracoes: "Configurações",
-};
-
-const PERMISSOES_MODULO_DESC = {
-  operacao: "Visão geral, pátio, histórico, busca e entrada/saída de veículos",
-  caixa: "Abertura, fechamento, sangria e suprimento de caixa",
-  pagamentos: "Registro, cancelamento e estorno de pagamentos",
-  formas_pagamento: "Cadastro das formas de pagamento aceitas",
-  tabela_precos: "Valores e regras de cobrança dos tickets",
-  descontos: "Cadastro e autorização de descontos",
-  cortesias: "Emissão e autorização de cortesias",
-  mensalistas: "Cadastro, pagamento e bloqueio de mensalistas",
-  convenios: "Cadastro de empresas conveniadas",
-  contas_receber: "Contas a receber e baixas de convênios",
-  estornos: "Registro de estornos de pagamentos",
-  auditoria: "Consulta de logs de alteração e acesso",
-  dashboard_financeiro: "Indicadores e gráficos financeiros",
-  relatorios: "Relatórios e exportações",
-  usuarios: "Cadastro e gestão de usuários do sistema",
-  clientes: "Cadastro de clientes mensalistas (menu Clientes)",
-  financeiro: "Lançamentos manuais de entradas e saídas",
-  configuracoes: "Nome do estacionamento, vagas, preços, ticket e PIX",
-};
-
-// Agrupa os modulos por categoria para melhor organizacao
-const PERMISSOES_CATEGORIAS = [
-  {
-    nome: "Operação",
-    modulos: ["operacao", "caixa", "pagamentos", "tabela_precos", "descontos", "cortesias", "estornos"],
-  },
-  {
-    nome: "Financeiro",
-    modulos: ["dashboard_financeiro", "relatorios", "formas_pagamento", "contas_receber", "financeiro"],
-  },
-  {
-    nome: "Cadastros",
-    modulos: ["mensalistas", "convenios", "clientes"],
-  },
-  {
-    nome: "Administrativo",
-    modulos: ["usuarios", "auditoria", "configuracoes"],
-  },
-];
 
 function nomePerfil(codigo) {
   const p = permissoesPerfisDetalhes.find((x) => x.codigo === codigo);
@@ -2124,16 +2841,29 @@ function perfilEhBase(codigo) {
 async function carregarPerfis() {
   const container = document.getElementById("perfis-container");
   if (!container) return;
-  container.innerHTML = '<p class="config-hint">Carregando perfis...</p>';
+  container.innerHTML = '<p class="config-hint">Carregando perfis e catálogo de funcionalidades...</p>';
   try {
     const dados = await chamarApi("/permissoes");
     permissoesMatriz = dados.matriz || {};
     permissoesPerfis = dados.perfis || [];
     permissoesModulos = dados.modulos || [];
     permissoesAcoes = dados.acoes || [];
+    permissoesCategorias = dados.categorias || [];
+    permissoesAcoesPorModulo = dados.acoes_por_modulo || {};
     permissoesPerfisDetalhes = dados.perfis_detalhes || [];
+
     renderPerfis();
     atualizarSelectPerfis();
+
+    // Se nenhum perfil editavel estiver selecionado, seleciona o primeiro disponivel
+    if (!perfilSelecionado || perfilSelecionado === "admin") {
+      const primeiroEditavel = permissoesPerfisDetalhes.find((p) => p.codigo !== "admin" && p.ativo !== false);
+      if (primeiroEditavel) {
+        selecionarPerfil(primeiroEditavel.codigo);
+      }
+    } else {
+      renderMatrizPerfil(perfilSelecionado);
+    }
   } catch (erro) {
     container.innerHTML = `<p class="config-hint">Erro ao carregar perfis: ${erro.message}</p>`;
   }
@@ -2159,19 +2889,19 @@ function renderPerfis() {
       ativo ? "" : "inativo",
     ].filter(Boolean).join(" ");
     const badgeClasse = ativo ? "ativo" : "inativo";
-    const badgeTexto = isBase ? "Base" : (ativo ? "Ativo" : "Inativo");
+    const badgeTexto = isBase ? "Base do Sistema" : (ativo ? "Ativo" : "Inativo");
     const badgeClasseFinal = isBase ? "base" : badgeClasse;
 
     html += `<div class="${classe}" data-perfil-card="${perfil.codigo}">
       <div class="perfil-card-header">
         <span class="perfil-card-name">
-          ${perfil.nome}
+          ${escaparHtml(perfil.nome)}
           <span class="perfil-card-badge ${badgeClasseFinal}">${badgeTexto}</span>
         </span>
       </div>
-      <div class="perfil-card-desc">${perfil.descricao || "Sem descricao"}</div>
+      <div class="perfil-card-desc">${escaparHtml(perfil.descricao || "Sem descrição")}</div>
       <div class="perfil-card-actions">
-        <button type="button" class="btn-mini" data-selecionar-perfil="${perfil.codigo}">Permissoes</button>
+        <button type="button" class="btn-mini" data-selecionar-perfil="${perfil.codigo}">Configurar Permissões</button>
         ${!isBase ? `<button type="button" class="btn-mini btn-mini-ghost" data-editar-perfil="${perfil.id}">Editar</button>` : ""}
         ${!isBase ? `<button type="button" class="btn-mini btn-mini-ghost" data-clonar-perfil="${perfil.id}">Clonar</button>` : ""}
         ${!isBase ? `<button type="button" class="btn-mini btn-mini-ghost" data-${ativo ? "inativar" : "ativar"}-perfil="${perfil.id}">${ativo ? "Inativar" : "Ativar"}</button>` : ""}
@@ -2185,6 +2915,12 @@ function renderPerfis() {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       selecionarPerfil(btn.dataset.selecionarPerfil);
+    });
+  });
+  container.querySelectorAll(".perfil-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      const cod = card.dataset.perfilCard;
+      if (cod) selecionarPerfil(cod);
     });
   });
   container.querySelectorAll("[data-editar-perfil]").forEach((btn) => {
@@ -2223,55 +2959,155 @@ function renderMatrizPerfil(codigo) {
   if (!section || !container || !titulo) return;
 
   section.classList.remove("hidden");
-  titulo.textContent = `Permissoes - ${nomePerfil(codigo)}`;
+  titulo.textContent = `Permissões de Acesso — Perfil: ${nomePerfil(codigo)}`;
 
   if (codigo === "admin") {
-    container.innerHTML = '<p class="config-hint">O perfil Administrador tem acesso total e nao pode ser alterado.</p>';
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 40px; text-align: center; border: 1px dashed var(--color-border); border-radius: var(--radius-sm); background: #f8fafc;">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin: 0 auto 12px; color: #10b981;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h4 style="font-size: 16px; margin-bottom: 6px; color: var(--color-text);">Perfil Administrador</h4>
+        <p class="config-hint" style="max-width: 540px; margin: 0 auto;">O perfil Administrador possui controle irrestrito a todos os 20 módulos e fluxos do sistema. Por razões de governança e segurança, suas permissões não podem ser limitadas.</p>
+      </div>`;
     return;
   }
 
-  let html = '<div class="permissoes-card">';
-  html += `<div class="permissoes-card-body">
-    <div class="permissoes-card-actions" style="margin-bottom: 12px;">
-      <button type="button" class="btn-mini" id="btn-marcar-tudo-perfil">Marcar tudo</button>
-      <button type="button" class="btn-mini btn-mini-ghost" id="btn-desmarcar-tudo-perfil">Desmarcar tudo</button>
-    </div>`;
+  const categorias = permissoesCategorias || [];
+  const acoesPorModulo = permissoesAcoesPorModulo || {};
 
-  PERMISSOES_CATEGORIAS.forEach((cat) => {
+  let html = "";
+
+  categorias.forEach((cat) => {
     const modulosCat = cat.modulos.filter((m) => permissoesModulos.includes(m));
     if (!modulosCat.length) return;
-    html += `<div class="permissoes-categoria">
-      <div class="permissoes-categoria-title">${cat.nome}</div>
-      ${modulosCat.map((modulo) => {
-        const acoes = (permissoesMatriz[modulo] && permissoesMatriz[modulo][codigo]) || [];
-        return `<div class="permissoes-modulo">
-          <div class="permissoes-modulo-info">
-            <span class="permissoes-modulo-nome">${PERMISSOES_MODULO_LABEL[modulo] || modulo}</span>
-            <span class="permissoes-modulo-desc">${PERMISSOES_MODULO_DESC[modulo] || ""}</span>
+
+    html += `
+      <div class="permissoes-categoria-bloco" data-categoria-id="${cat.id}">
+        <div class="permissoes-categoria-title" style="display: flex; align-items: center; justify-content: space-between; margin-top: 20px; margin-bottom: 12px;">
+          <span>${escaparHtml(cat.nome)}</span>
+          <span style="font-size: 11px; font-weight: 500; text-transform: none; color: var(--color-text-light);">${modulosCat.length} módulos</span>
+        </div>`;
+
+    modulosCat.forEach((modulo) => {
+      const infoMod = acoesPorModulo[modulo] || {
+        nome: modulo,
+        descricao: "",
+        acoes: permissoesAcoes.map((a) => ({ acao: a, nome: a, desc: "" })),
+      };
+
+      const acoesPermitidas = (permissoesMatriz[modulo] && permissoesMatriz[modulo][codigo]) || [];
+      const moduloLiberado = acoesPermitidas.length > 0;
+
+      html += `
+        <div class="permissoes-modulo-card ${moduloLiberado ? '' : 'bloqueado'}" data-modulo-card="${modulo}">
+          <div class="permissoes-modulo-header">
+            <div class="permissoes-modulo-main-info">
+              <div class="permissoes-modulo-title-row">
+                <strong>${escaparHtml(infoMod.nome)}</strong>
+                <span class="permissoes-modulo-badge ${moduloLiberado ? 'ativo' : 'bloqueado'}" id="badge-modulo-${modulo}">
+                  ${moduloLiberado ? 'Liberado' : 'Bloqueado'}
+                </span>
+              </div>
+              <span class="permissoes-modulo-sub">${escaparHtml(infoMod.descricao)}</span>
+            </div>
+            <div>
+              <label class="permissoes-modulo-switch" title="Liberar ou bloquear este módulo para o perfil">
+                <input type="checkbox" class="switch-modulo-master" data-modulo="${modulo}" ${moduloLiberado ? 'checked' : ''}>
+                <span class="switch-texto-${modulo}">${moduloLiberado ? 'Módulo Liberado' : 'Módulo Bloqueado'}</span>
+              </label>
+            </div>
           </div>
-          <div class="permissoes-acoes">
-            ${permissoesAcoes.map((acao) => {
-              const marcado = acoes.includes(acao) ? "checked" : "";
-              return `<label class="permissoes-acao" title="${PERMISSOES_ACAO_LABEL[acao] || acao}">
-                <input type="checkbox" data-modulo="${modulo}" data-perfil="${codigo}" data-acao="${acao}" ${marcado}>
-                <span class="permissoes-acao-icon">${PERMISSOES_ACAO_ICON[acao] || ""}</span>
-                <span class="permissoes-acao-label">${PERMISSOES_ACAO_LABEL[acao] || acao}</span>
-              </label>`;
+          <div class="permissoes-modulo-body" id="corpo-modulo-${modulo}">
+            ${infoMod.acoes.map((item) => {
+              const checado = acoesPermitidas.includes(item.acao);
+              return `
+                <label class="permissoes-acao-item ${checado ? 'selecionado' : ''}" title="${escaparHtml(item.desc)}">
+                  <input type="checkbox" data-modulo="${modulo}" data-perfil="${codigo}" data-acao="${item.acao}" ${checado ? 'checked' : ''}>
+                  <div class="permissoes-acao-detalhes">
+                    <span class="permissoes-acao-titulo">${escaparHtml(item.nome)}</span>
+                    <span class="permissoes-acao-sub">${escaparHtml(item.desc)}</span>
+                  </div>
+                </label>
+              `;
             }).join("")}
           </div>
-        </div>`;
-      }).join("")}
-    </div>`;
+        </div>
+      `;
+    });
+
+    html += `</div>`;
   });
 
-  html += "</div></div>";
   container.innerHTML = html;
 
-  document.getElementById("btn-marcar-tudo-perfil").addEventListener("click", () => {
-    container.querySelectorAll(`input[data-perfil="${codigo}"]`).forEach((cb) => { cb.checked = true; });
+  // Interatividade: Switch Mestre de cada Módulo
+  container.querySelectorAll(".switch-modulo-master").forEach((sw) => {
+    sw.addEventListener("change", () => {
+      const modulo = sw.dataset.modulo;
+      const card = container.querySelector(`.permissoes-modulo-card[data-modulo-card="${modulo}"]`);
+      const badge = document.getElementById(`badge-modulo-${modulo}`);
+      const texto = container.querySelector(`.switch-texto-${modulo}`);
+      const acaoCheckboxes = card.querySelectorAll(`input[data-modulo="${modulo}"][data-perfil="${codigo}"]`);
+
+      if (sw.checked) {
+        card.classList.remove("bloqueado");
+        if (badge) {
+          badge.className = "permissoes-modulo-badge ativo";
+          badge.textContent = "Liberado";
+        }
+        if (texto) texto.textContent = "Módulo Liberado";
+        acaoCheckboxes.forEach((cb) => {
+          if (cb.dataset.acao === "ver" || acaoCheckboxes.length <= 2) {
+            cb.checked = true;
+            cb.closest(".permissoes-acao-item").classList.add("selecionado");
+          }
+        });
+      } else {
+        card.classList.add("bloqueado");
+        if (badge) {
+          badge.className = "permissoes-modulo-badge bloqueado";
+          badge.textContent = "Bloqueado";
+        }
+        if (texto) texto.textContent = "Módulo Bloqueado";
+        acaoCheckboxes.forEach((cb) => {
+          cb.checked = false;
+          cb.closest(".permissoes-acao-item").classList.remove("selecionado");
+        });
+      }
+    });
   });
-  document.getElementById("btn-desmarcar-tudo-perfil").addEventListener("click", () => {
-    container.querySelectorAll(`input[data-perfil="${codigo}"]`).forEach((cb) => { cb.checked = false; });
+
+  // Interatividade: Checkboxes de ações individuais
+  container.querySelectorAll(".permissoes-acao-item input[type='checkbox']").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      const itemLabel = cb.closest(".permissoes-acao-item");
+      itemLabel.classList.toggle("selecionado", cb.checked);
+
+      const modulo = cb.dataset.modulo;
+      const card = container.querySelector(`.permissoes-modulo-card[data-modulo-card="${modulo}"]`);
+      const sw = card.querySelector(".switch-modulo-master");
+      const badge = document.getElementById(`badge-modulo-${modulo}`);
+      const texto = card.querySelector(`.switch-texto-${modulo}`);
+
+      const qualquerMarcado = Array.from(card.querySelectorAll(`input[data-modulo="${modulo}"][data-perfil="${codigo}"]`)).some((c) => c.checked);
+
+      if (qualquerMarcado && !sw.checked) {
+        sw.checked = true;
+        card.classList.remove("bloqueado");
+        if (badge) {
+          badge.className = "permissoes-modulo-badge ativo";
+          badge.textContent = "Liberado";
+        }
+        if (texto) texto.textContent = "Módulo Liberado";
+      } else if (!qualquerMarcado && sw.checked) {
+        sw.checked = false;
+        card.classList.add("bloqueado");
+        if (badge) {
+          badge.className = "permissoes-modulo-badge bloqueado";
+          badge.textContent = "Bloqueado";
+        }
+        if (texto) texto.textContent = "Módulo Bloqueado";
+      }
+    });
   });
 }
 
@@ -2284,11 +3120,21 @@ function coletarPermissoes() {
         novaMatriz[modulo][perfil] = permissoesAcoes.slice();
         return;
       }
-      const acoes = [];
-      document.querySelectorAll(`input[data-modulo="${modulo}"][data-perfil="${perfil}"]:checked`).forEach((cb) => {
-        acoes.push(cb.dataset.acao);
-      });
-      novaMatriz[modulo][perfil] = acoes;
+      if (perfil === perfilSelecionado) {
+        const card = document.querySelector(`.permissoes-modulo-card[data-modulo-card="${modulo}"]`);
+        const sw = card ? card.querySelector(".switch-modulo-master") : null;
+        if (sw && !sw.checked) {
+          novaMatriz[modulo][perfil] = [];
+        } else {
+          const acoes = [];
+          document.querySelectorAll(`input[data-modulo="${modulo}"][data-perfil="${perfil}"]:checked`).forEach((cb) => {
+            acoes.push(cb.dataset.acao);
+          });
+          novaMatriz[modulo][perfil] = acoes;
+        }
+      } else {
+        novaMatriz[modulo][perfil] = (permissoesMatriz[modulo] && permissoesMatriz[modulo][perfil]) || [];
+      }
     });
   });
   return novaMatriz;
@@ -2296,28 +3142,31 @@ function coletarPermissoes() {
 
 async function salvarPermissoes() {
   const botao = document.getElementById("btn-salvar-permissoes");
+  if (!botao) return;
   botao.disabled = true;
+  botao.textContent = "Salvando...";
   try {
     const dados = await chamarApi("/permissoes", {
       method: "PUT",
       body: JSON.stringify({ matriz: coletarPermissoes() }),
     });
     permissoesMatriz = dados.matriz || permissoesMatriz;
-    mostrarToast(dados.mensagem, "success");
+    mostrarToast(dados.mensagem || "Permissões atualizadas com sucesso!", "success");
     if (perfilSelecionado) renderMatrizPerfil(perfilSelecionado);
   } catch (erro) {
     mostrarToast(erro.message, "error");
   } finally {
     botao.disabled = false;
+    botao.textContent = "Salvar permissões";
   }
 }
 
 async function restaurarPermissoesPadrao() {
-  if (!confirm("Restaurar as permissoes padrao de todos os perfis? As alteracoes nao salvas serao perdidas.")) return;
+  if (!confirm("Restaurar as permissões padrão de todos os perfis? As alterações não salvas serão perdidas.")) return;
   try {
     const dados = await chamarApi("/permissoes/restaurar", { method: "POST" });
     permissoesMatriz = dados.matriz || permissoesMatriz;
-    mostrarToast(dados.mensagem, "success");
+    mostrarToast(dados.mensagem || "Permissões restauradas com sucesso!", "success");
     if (perfilSelecionado) renderMatrizPerfil(perfilSelecionado);
   } catch (erro) {
     mostrarToast(erro.message, "error");
@@ -2330,22 +3179,35 @@ let perfilEditandoId = null;
 
 function abrirModalPerfil(perfil = null) {
   const overlay = document.getElementById("modal-perfil");
+  if (!overlay) return;
   perfilEditandoId = perfil ? perfil.id : null;
   document.getElementById("input-perfil-id").value = perfil ? perfil.id : "";
   document.getElementById("input-perfil-nome").value = perfil ? perfil.nome : "";
-  document.getElementById("input-perfil-codigo").value = perfil ? perfil.codigo : "";
-  document.getElementById("input-perfil-codigo").disabled = !!perfil;
+  const campoCod = document.getElementById("campo-perfil-codigo");
+  const inputCod = document.getElementById("input-perfil-codigo");
+  if (campoCod && inputCod) {
+    if (perfil) {
+      campoCod.hidden = true;
+      inputCod.required = false;
+      inputCod.value = perfil.codigo;
+    } else {
+      campoCod.hidden = false;
+      inputCod.required = true;
+      inputCod.value = "";
+    }
+  }
   document.getElementById("input-perfil-descricao").value = perfil ? perfil.descricao : "";
-  document.getElementById("modal-perfil-titulo").textContent = perfil ? "Editar perfil" : "Novo perfil";
+  document.getElementById("modal-perfil-titulo").textContent = perfil ? "Editar perfil" : "Novo perfil de acesso";
   overlay.hidden = false;
   setTimeout(() => document.getElementById("input-perfil-nome").focus(), 50);
 }
 
 function fecharModalPerfil() {
-  document.getElementById("modal-perfil").hidden = true;
-  document.getElementById("form-perfil").reset();
+  const overlay = document.getElementById("modal-perfil");
+  if (overlay) overlay.hidden = true;
+  const form = document.getElementById("form-perfil");
+  if (form) form.reset();
   document.getElementById("input-perfil-id").value = "";
-  document.getElementById("input-perfil-codigo").disabled = false;
   perfilEditandoId = null;
 }
 
@@ -2353,13 +3215,14 @@ async function salvarPerfil(evento) {
   evento.preventDefault();
   const id = document.getElementById("input-perfil-id").value;
   const nome = document.getElementById("input-perfil-nome").value.trim();
-  const codigo = document.getElementById("input-perfil-codigo").value.trim().toLowerCase().replace(/\\s+/g, "_");
+  const inputCod = document.getElementById("input-perfil-codigo");
+  const codigo = inputCod ? inputCod.value.trim().toLowerCase().replace(/\s+/g, "_") : "";
   const descricao = document.getElementById("input-perfil-descricao").value.trim();
 
-  if (!nome || !codigo) return;
+  if (!nome || (!id && !codigo)) return;
 
-  const botao = document.getElementById("btn-perfil-salvar");
-  botao.disabled = true;
+  const botao = document.getElementById("btn-perfil-salvar") || document.querySelector("#modal-perfil .btn-salvar");
+  if (botao) botao.disabled = true;
   try {
     if (id) {
       await chamarApi(`/perfis/${id}`, {
@@ -2368,11 +3231,12 @@ async function salvarPerfil(evento) {
       });
       mostrarToast("Perfil atualizado com sucesso!", "success");
     } else {
-      await chamarApi("/perfis", {
+      const res = await chamarApi("/perfis", {
         method: "POST",
         body: JSON.stringify({ nome, codigo, descricao }),
       });
       mostrarToast("Perfil criado com sucesso!", "success");
+      perfilSelecionado = res.perfil ? res.perfil.codigo : codigo;
     }
     fecharModalPerfil();
     await carregarPerfis();
@@ -2380,7 +3244,7 @@ async function salvarPerfil(evento) {
   } catch (erro) {
     mostrarToast(erro.message, "error");
   } finally {
-    botao.disabled = false;
+    if (botao) botao.disabled = false;
   }
 }
 
@@ -2395,16 +3259,36 @@ async function alternarPerfil(id, ativar) {
 }
 
 async function clonarPerfil(id) {
-  const origem = prompt("Informe o codigo do perfil de origem (ex: operador, supervisor):");
-  if (!origem) return;
+  const pOrigem = permissoesPerfisDetalhes.find((p) => p.id === id);
+  if (!pOrigem) return;
+
+  const nomeNovo = prompt(`Informe o nome do novo perfil clonado de "${pOrigem.nome}":`, `${pOrigem.nome} (Cópia)`);
+  if (!nomeNovo || !nomeNovo.trim()) return;
+
+  const codigoSugerido = nomeNovo.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const codigoNovo = prompt("Informe o código identificador único (sem espaços ou acentos):", codigoSugerido);
+  if (!codigoNovo || !codigoNovo.trim()) return;
+
   try {
-    await chamarApi(`/perfis/${id}/clonar`, {
+    const resCriar = await chamarApi("/perfis", {
       method: "POST",
-      body: JSON.stringify({ origem }),
+      body: JSON.stringify({
+        nome: nomeNovo.trim(),
+        codigo: codigoNovo.trim(),
+        descricao: `Clonado de ${pOrigem.nome}`,
+      }),
     });
-    mostrarToast("Permissoes clonadas com sucesso!", "success");
+    const novoPerfil = resCriar.perfil;
+
+    await chamarApi(`/perfis/${novoPerfil.id}/clonar`, {
+      method: "POST",
+      body: JSON.stringify({ origem: pOrigem.codigo }),
+    });
+
+    mostrarToast(`Perfil "${nomeNovo}" clonado com sucesso!`, "success");
+    perfilSelecionado = novoPerfil.codigo;
     await carregarPerfis();
-    if (perfilSelecionado) renderMatrizPerfil(perfilSelecionado);
+    renderMatrizPerfil(perfilSelecionado);
   } catch (erro) {
     mostrarToast(erro.message, "error");
   }
@@ -2425,30 +3309,143 @@ function atualizarSelectPerfis() {
   }
 }
 
-// Eventos
-document.getElementById("btn-novo-perfil").addEventListener("click", () => abrirModalPerfil());
-document.getElementById("modal-perfil-fechar").addEventListener("click", fecharModalPerfil);
-document.getElementById("btn-perfil-cancelar").addEventListener("click", fecharModalPerfil);
-document.getElementById("modal-perfil").addEventListener("click", (evento) => {
-  if (evento.target === evento.currentTarget) fecharModalPerfil();
-});
-document.getElementById("form-perfil").addEventListener("submit", salvarPerfil);
-document.addEventListener("keydown", (evento) => {
-  if (evento.key === "Escape" && !document.getElementById("modal-perfil").hidden) fecharModalPerfil();
-});
+// Eventos de Permissões
+const btnNovoPerfil = document.getElementById("btn-novo-perfil");
+if (btnNovoPerfil) btnNovoPerfil.addEventListener("click", () => abrirModalPerfil());
 
-document.getElementById("btn-salvar-permissoes").addEventListener("click", salvarPermissoes);
-document.getElementById("btn-cancelar-permissoes").addEventListener("click", () => {
-  if (perfilSelecionado) renderMatrizPerfil(perfilSelecionado);
-});
-document.getElementById("btn-restaurar-permissoes").addEventListener("click", restaurarPermissoesPadrao);
+const modalPerfilFechar = document.getElementById("modal-perfil-fechar");
+if (modalPerfilFechar) modalPerfilFechar.addEventListener("click", fecharModalPerfil);
+
+const btnPerfilCancelar = document.getElementById("btn-perfil-cancelar");
+if (btnPerfilCancelar) btnPerfilCancelar.addEventListener("click", fecharModalPerfil);
+
+const modalPerfilOverlay = document.getElementById("modal-perfil");
+if (modalPerfilOverlay) {
+  modalPerfilOverlay.addEventListener("click", (evento) => {
+    if (evento.target === evento.currentTarget) fecharModalPerfil();
+  });
+}
+
+const formPerfil = document.getElementById("form-perfil");
+if (formPerfil) formPerfil.addEventListener("submit", salvarPerfil);
+
+const btnSalvarPermissoes = document.getElementById("btn-salvar-permissoes");
+if (btnSalvarPermissoes) btnSalvarPermissoes.addEventListener("click", salvarPermissoes);
+
+const btnCancelarPermissoes = document.getElementById("btn-cancelar-permissoes");
+if (btnCancelarPermissoes) {
+  btnCancelarPermissoes.addEventListener("click", () => {
+    if (perfilSelecionado) renderMatrizPerfil(perfilSelecionado);
+  });
+}
+
+const btnRestaurarPermissoes = document.getElementById("btn-restaurar-permissoes");
+if (btnRestaurarPermissoes) btnRestaurarPermissoes.addEventListener("click", restaurarPermissoesPadrao);
+
+// Ações rápidas no topo da matriz
+const btnMarcarTudo = document.getElementById("btn-marcar-tudo-perfil");
+if (btnMarcarTudo) {
+  btnMarcarTudo.addEventListener("click", () => {
+    const container = document.getElementById("permissoes-container");
+    if (!container) return;
+    container.querySelectorAll(".switch-modulo-master").forEach((sw) => {
+      sw.checked = true;
+      const mod = sw.dataset.modulo;
+      const card = container.querySelector(`.permissoes-modulo-card[data-modulo-card="${mod}"]`);
+      if (card) card.classList.remove("bloqueado");
+      const badge = document.getElementById(`badge-modulo-${mod}`);
+      if (badge) { badge.className = "permissoes-modulo-badge ativo"; badge.textContent = "Liberado"; }
+      const txt = container.querySelector(`.switch-texto-${mod}`);
+      if (txt) txt.textContent = "Módulo Liberado";
+    });
+    container.querySelectorAll(".permissoes-acao-item").forEach((item) => {
+      item.classList.add("selecionado");
+      const cb = item.querySelector("input[type='checkbox']");
+      if (cb) cb.checked = true;
+    });
+  });
+}
+
+const btnDesmarcarTudo = document.getElementById("btn-desmarcar-tudo-perfil");
+if (btnDesmarcarTudo) {
+  btnDesmarcarTudo.addEventListener("click", () => {
+    const container = document.getElementById("permissoes-container");
+    if (!container) return;
+    container.querySelectorAll(".switch-modulo-master").forEach((sw) => {
+      sw.checked = false;
+      const mod = sw.dataset.modulo;
+      const card = container.querySelector(`.permissoes-modulo-card[data-modulo-card="${mod}"]`);
+      if (card) card.classList.add("bloqueado");
+      const badge = document.getElementById(`badge-modulo-${mod}`);
+      if (badge) { badge.className = "permissoes-modulo-badge bloqueado"; badge.textContent = "Bloqueado"; }
+      const txt = container.querySelector(`.switch-texto-${mod}`);
+      if (txt) txt.textContent = "Módulo Bloqueado";
+    });
+    container.querySelectorAll(".permissoes-acao-item").forEach((item) => {
+      item.classList.remove("selecionado");
+      const cb = item.querySelector("input[type='checkbox']");
+      if (cb) cb.checked = false;
+    });
+  });
+}
+
+const btnSomenteLeitura = document.getElementById("btn-somente-leitura-perfil");
+if (btnSomenteLeitura) {
+  btnSomenteLeitura.addEventListener("click", () => {
+    const container = document.getElementById("permissoes-container");
+    if (!container) return;
+    container.querySelectorAll(".switch-modulo-master").forEach((sw) => {
+      sw.checked = true;
+      const mod = sw.dataset.modulo;
+      const card = container.querySelector(`.permissoes-modulo-card[data-modulo-card="${mod}"]`);
+      if (card) card.classList.remove("bloqueado");
+      const badge = document.getElementById(`badge-modulo-${mod}`);
+      if (badge) { badge.className = "permissoes-modulo-badge ativo"; badge.textContent = "Liberado"; }
+      const txt = container.querySelector(`.switch-texto-${mod}`);
+      if (txt) txt.textContent = "Módulo Liberado";
+    });
+    container.querySelectorAll(".permissoes-acao-item").forEach((item) => {
+      const cb = item.querySelector("input[type='checkbox']");
+      if (cb) {
+        const ehVer = cb.dataset.acao === "ver";
+        cb.checked = ehVer;
+        item.classList.toggle("selecionado", ehVer);
+      }
+    });
+  });
+}
+
+// Filtro de busca de módulos
+const inputBuscaModulos = document.getElementById("filtro-busca-modulos");
+if (inputBuscaModulos) {
+  inputBuscaModulos.addEventListener("input", () => {
+    const termo = inputBuscaModulos.value.trim().toLowerCase();
+    const cards = document.querySelectorAll(".permissoes-modulo-card");
+    cards.forEach((card) => {
+      const texto = card.textContent.toLowerCase();
+      const bate = !termo || texto.includes(termo);
+      card.style.display = bate ? "" : "none";
+    });
+    document.querySelectorAll(".permissoes-categoria-bloco").forEach((bloco) => {
+      const temVisivel = Array.from(bloco.querySelectorAll(".permissoes-modulo-card")).some((c) => c.style.display !== "none");
+      bloco.style.display = temVisivel ? "" : "none";
+    });
+  });
+}
+
+// Botao na aba de configuracoes para ir a tela dedicada
+const btnIrParaPermissoes = document.getElementById("btn-ir-para-permissoes");
+if (btnIrParaPermissoes) {
+  btnIrParaPermissoes.addEventListener("click", () => {
+    mostrarView("view-permissoes");
+  });
+}
 
 // Carrega as permissoes ao abrir a aba de configuracoes
 document.querySelectorAll("#tabs-config .tab").forEach((botaoTab) => {
   botaoTab.addEventListener("click", () => {
     if (botaoTab.dataset.configTab === "permissoes") {
-      perfilSelecionado = null;
-      carregarPerfis();
+      mostrarView("view-permissoes");
     }
   });
 });
@@ -2559,6 +3556,7 @@ const BOTOES_PERMISSAO = [
 const MENU_PERMISSAO = {
   "view-visao-geral": "operacao",
   "view-usuarios": "usuarios",
+  "view-permissoes": "usuarios",
   "view-clientes": "clientes",
   "view-financeiro": "caixa",
   "view-caixa": "caixa",
@@ -2580,7 +3578,7 @@ const MENU_PERMISSAO = {
   "view-configuracoes": "configuracoes",
 };
 
-// Views do bloco Financeiro do sidebar (para exibir/ocultar o rotulo da secao)
+// Views do bloco Financeiro do sidebar (para compatibilidade de rotulos)
 const VIEWS_FINANCEIRO = [
   "view-financeiro", "view-caixa", "view-pagamentos", "view-formas-pagamento",
   "view-mensalistas", "view-convenios", "view-contas-receber",
@@ -2588,7 +3586,7 @@ const VIEWS_FINANCEIRO = [
   "view-relatorios", "view-auditoria",
 ];
 
-// Views do bloco Controle do sidebar (para exibir/ocultar o rotulo da secao)
+// Views do bloco Controle do sidebar (para compatibilidade de rotulos)
 const VIEWS_CONTROLE = [
   "view-nfse", "view-lista-negra", "view-reservas", "view-ocorrencias",
   "view-notificacoes",
@@ -2616,15 +3614,14 @@ function aplicarPermissoesFrontend(perfil) {
     item.dataset.permissaoOculto = permitido ? "" : "1";
   });
 
-  // Oculta o rotulo "Financeiro" se nenhum modulo financeiro estiver visivel
-  const labelFinanceiro = document.getElementById("menu-label-financeiro");
-  if (labelFinanceiro) {
-    const financeiroPermitido = VIEWS_FINANCEIRO.some((viewId) => {
-      const item = document.querySelector(`.menu-item[data-view="${viewId}"]`);
-      return item && item.dataset.permissaoOculto !== "1";
-    });
-    labelFinanceiro.style.display = financeiroPermitido ? "" : "none";
-  }
+  // Oculta grupos da sidebar caso todos os seus itens estejam bloqueados por permissao
+  document.querySelectorAll(".menu-group").forEach((grupo) => {
+    const itens = grupo.querySelectorAll(".menu-item");
+    const algumPermitido = Array.from(itens).some(
+      (item) => item.dataset.permissaoOculto !== "1"
+    );
+    grupo.style.display = algumPermitido ? "" : "none";
+  });
 
   // Aba "Funcoes e Permissoes" nas configuracoes: somente quem pode editar usuarios
   const abaPermissoes = document.querySelector('#tabs-config .tab[data-config-tab="permissoes"]');
@@ -2670,57 +3667,207 @@ let caixaAberto = null;
 
 async function carregarCaixa() {
   const corpo = document.getElementById("tabela-caixas");
-  corpo.innerHTML = "";
+  if (corpo) corpo.innerHTML = "";
 
   let dados;
   try {
     dados = await chamarApi("/caixa");
   } catch (erro) {
     mostrarToast(erro.message, "error");
-    corpo.innerHTML = '<tr><td colspan="8" class="table-empty">Erro ao carregar caixas.</td></tr>';
+    if (corpo) corpo.innerHTML = '<tr><td colspan="8" class="table-empty">Erro ao carregar caixas.</td></tr>';
     return;
   }
 
   caixaAberto = dados.caixa_aberto;
   const statusBox = document.getElementById("caixa-status");
+  const resumoCards = document.getElementById("caixa-resumo-cards");
+
+  // Botoes do topo
+  const btnTopoAbrir = document.getElementById("btn-abrir-caixa");
+  const btnTopoSangria = document.getElementById("btn-sangria");
+  const btnTopoSuprimento = document.getElementById("btn-suprimento");
+  const btnTopoFechar = document.getElementById("btn-fechar-caixa");
 
   if (caixaAberto) {
-    statusBox.innerHTML = `
-      <div class="caixa-aberto">
-        <span class="badge badge-ativo">Caixa aberto</span>
-        <span>Operador: <strong>${caixaAberto.operador}</strong></span>
-        <span>Abertura: <strong>${formatarDataHora(caixaAberto.data_abertura)}</strong></span>
-        <span>Valor inicial: <strong>${formatarMoeda(caixaAberto.valor_inicial)}</strong></span>
-      </div>
-    `;
-    document.getElementById("btn-abrir-caixa").hidden = true;
-    document.getElementById("btn-sangria").hidden = false;
-    document.getElementById("btn-suprimento").hidden = false;
-    document.getElementById("btn-fechar-caixa").hidden = false;
+    if (statusBox) {
+      statusBox.innerHTML = `
+        <div class="caixa-banner caixa-banner-aberto">
+          <div class="caixa-banner-info">
+            <div class="caixa-banner-badge">
+              <span class="status-indicator-dot"></span>
+              <strong>Caixa Aberto • Turno #${caixaAberto.id}</strong>
+            </div>
+            <div class="caixa-banner-meta">
+              <span>👤 Operador: <strong>${caixaAberto.operador}</strong></span>
+              <span>🕒 Abertura: <strong>${formatarDataHora(caixaAberto.data_abertura)}</strong></span>
+              <span>💵 Fundo Inicial: <strong>${formatarMoeda(caixaAberto.valor_inicial)}</strong></span>
+            </div>
+          </div>
+          <div class="caixa-banner-acoes">
+            <button type="button" class="btn-caixa-acao btn-caixa-suprimento" id="btn-suprimento-banner" title="Adicionar troco ao caixa">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              + Suprimento
+            </button>
+            <button type="button" class="btn-caixa-acao btn-caixa-sangria" id="btn-sangria-banner" title="Retirar dinheiro do caixa">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+              − Sangria
+            </button>
+            <button type="button" class="btn-caixa-acao btn-caixa-fechar" id="btn-fechar-banner" title="Conferir e fechar caixa">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+              Encerrar Turno
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("btn-suprimento-banner")?.addEventListener("click", () => abrirModalMovimento("suprimento"));
+      document.getElementById("btn-sangria-banner")?.addEventListener("click", () => abrirModalMovimento("sangria"));
+      document.getElementById("btn-fechar-banner")?.addEventListener("click", abrirModalFecharCaixa);
+    }
+
+    if (btnTopoAbrir) btnTopoAbrir.hidden = true;
+    if (btnTopoSangria) btnTopoSangria.hidden = false;
+    if (btnTopoSuprimento) btnTopoSuprimento.hidden = false;
+    if (btnTopoFechar) btnTopoFechar.hidden = false;
+
+    // Carrega o resumo discriminado do turno ativo
+    try {
+      const res = await chamarApi(`/caixa/${caixaAberto.id}/resumo`);
+      if (res && res.resumo) {
+        document.getElementById("card-caixa-inicial").textContent = formatarMoeda(res.resumo.valor_inicial);
+        document.getElementById("card-caixa-entradas").textContent = formatarMoeda(res.resumo.total_entradas);
+        document.getElementById("card-caixa-suprimentos").textContent = formatarMoeda(res.resumo.total_suprimentos);
+        document.getElementById("card-caixa-sangrias").textContent = formatarMoeda(res.resumo.total_sangrias);
+        document.getElementById("card-caixa-estornos").textContent = formatarMoeda(res.resumo.total_estornos);
+        document.getElementById("card-caixa-saldo-dinheiro").textContent = formatarMoeda(res.resumo.saldo_dinheiro);
+        if (resumoCards) resumoCards.hidden = false;
+      }
+    } catch (_) {
+      if (resumoCards) resumoCards.hidden = true;
+    }
   } else {
-    statusBox.innerHTML = '<p class="empty-state">Nenhum caixa aberto. Clique em "Abrir caixa" para iniciar o expediente.</p>';
-    document.getElementById("btn-abrir-caixa").hidden = false;
-    document.getElementById("btn-sangria").hidden = true;
-    document.getElementById("btn-suprimento").hidden = true;
-    document.getElementById("btn-fechar-caixa").hidden = true;
+    if (statusBox) {
+      statusBox.innerHTML = `
+        <div class="caixa-banner caixa-banner-fechado">
+          <div class="caixa-banner-fechado-inner">
+            <div class="caixa-banner-fechado-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div class="caixa-banner-fechado-texto">
+              <h4>Nenhum Caixa Aberto no Momento</h4>
+              <p>Inicie um novo expediente para registrar movimentações, receber pagamentos e controlar a gaveta de dinheiro.</p>
+            </div>
+            <button type="button" class="btn-novo btn-abrir-caixa-hero" id="btn-abrir-caixa-hero">
+              + Iniciar Expediente (Abrir Caixa)
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById("btn-abrir-caixa-hero")?.addEventListener("click", abrirModalAbrirCaixa);
+    }
+
+    if (btnTopoAbrir) btnTopoAbrir.hidden = false;
+    if (btnTopoSangria) btnTopoSangria.hidden = true;
+    if (btnTopoSuprimento) btnTopoSuprimento.hidden = true;
+    if (btnTopoFechar) btnTopoFechar.hidden = true;
+    if (resumoCards) resumoCards.hidden = true;
   }
 
-  (dados.caixas || []).forEach((caixa) => {
-    const linha = document.createElement("tr");
-    const aberto = caixa.status === "aberto";
-    linha.innerHTML = `
-      <td class="cell-nome">${caixa.operador}</td>
-      <td>${formatarDataHora(caixa.data_abertura)}</td>
-      <td>${formatarDataHora(caixa.data_fechamento)}</td>
-      <td>${formatarMoeda(caixa.valor_inicial)}</td>
-      <td>${formatarMoeda(caixa.valor_esperado)}</td>
-      <td>${formatarMoeda(caixa.valor_contado)}</td>
-      <td class="${caixa.diferenca >= 0 ? "valor-entrada" : "valor-saida"}">${formatarMoeda(caixa.diferenca)}</td>
-      <td><span class="badge ${aberto ? "badge-ativo" : "badge-inativo"}">${aberto ? "Aberto" : "Fechado"}</span></td>
-    `;
-    corpo.appendChild(linha);
-  });
+  // Atualiza pagamentos e movimentacoes do turno
+  try {
+    await carregarPagamentos();
+  } catch (_) {}
+
+  try {
+    await carregarMovimentacoesCaixaAtivo();
+  } catch (_) {}
+
+  if (corpo) {
+    (dados.caixas || []).forEach((caixa) => {
+      const linha = document.createElement("tr");
+      const aberto = caixa.status === "aberto";
+      linha.innerHTML = `
+        <td class="cell-nome">${caixa.operador}</td>
+        <td>${formatarDataHora(caixa.data_abertura)}</td>
+        <td>${formatarDataHora(caixa.data_fechamento)}</td>
+        <td>${formatarMoeda(caixa.valor_inicial)}</td>
+        <td>${formatarMoeda(caixa.valor_esperado)}</td>
+        <td>${formatarMoeda(caixa.valor_contado)}</td>
+        <td class="${caixa.diferenca >= 0 ? "valor-entrada" : "valor-saida"}">${formatarMoeda(caixa.diferenca)}</td>
+        <td><span class="badge ${aberto ? "badge-ativo" : "badge-inativo"}">${aberto ? "Aberto" : "Fechado"}</span></td>
+      `;
+      corpo.appendChild(linha);
+    });
+  }
+
+  // Sincroniza liberacao ou bloqueio da tela de Nova Entrada
+  atualizarEstadoCaixaNaEntrada(caixaAberto);
 }
+
+// Carregar movimentacoes do turno ativo (Sangrias / Suprimentos)
+async function carregarMovimentacoesCaixaAtivo() {
+  const corpo = document.getElementById("tabela-caixa-movimentacoes");
+  const empty = document.getElementById("caixa-movimentacoes-empty");
+  const contador = document.getElementById("caixa-qtd-movimentacoes");
+  if (!corpo) return;
+
+  if (!caixaAberto) {
+    corpo.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhum caixa aberto no momento.</td></tr>';
+    if (empty) empty.hidden = true;
+    if (contador) contador.textContent = "0";
+    return;
+  }
+
+  try {
+    const dados = await chamarApi(`/caixa/${caixaAberto.id}/movimentacoes`);
+    const movs = dados.movimentacoes || [];
+    if (contador) contador.textContent = String(movs.length);
+    corpo.innerHTML = "";
+
+    if (!movs.length) {
+      if (empty) empty.hidden = false;
+    } else {
+      if (empty) empty.hidden = true;
+      movs.forEach((m) => {
+        const tr = document.createElement("tr");
+        const ehSuprimento = m.tipo === "suprimento";
+        tr.innerHTML = `
+          <td>${formatarDataHora(m.data)}</td>
+          <td><span class="${ehSuprimento ? "badge-tipo-suprimento" : "badge-tipo-sangria"}">${ehSuprimento ? "+ Suprimento" : "− Sangria"}</span></td>
+          <td class="cell-nome">${m.motivo || "—"}</td>
+          <td>${m.operador || "—"}</td>
+          <td style="text-align: right; font-weight: 700;" class="${ehSuprimento ? "valor-entrada" : "valor-saida"}">
+            ${ehSuprimento ? "+" : "−"} ${formatarMoeda(m.valor)}
+          </td>
+        `;
+        corpo.appendChild(tr);
+      });
+    }
+  } catch (_) {
+    corpo.innerHTML = '<tr><td colspan="5" class="table-empty">Não foi possível carregar movimentações.</td></tr>';
+  }
+}
+
+// Alternancia entre Abas de Caixa (Pagamentos do Turno, Movimentacoes, Historico)
+document.querySelectorAll(".caixa-tabs .tab").forEach((tabBtn) => {
+  tabBtn.addEventListener("click", () => {
+    document.querySelectorAll(".caixa-tabs .tab").forEach((t) => t.classList.remove("active"));
+    tabBtn.classList.add("active");
+    const aba = tabBtn.dataset.caixaTab;
+
+    const painelPag = document.getElementById("painel-pagamentos-caixa");
+    const painelMov = document.getElementById("painel-movimentacoes-caixa");
+    const painelTurnos = document.getElementById("painel-turnos-caixa");
+
+    if (painelPag) painelPag.hidden = aba !== "pagamentos";
+    if (painelMov) painelMov.hidden = aba !== "movimentacoes";
+    if (painelTurnos) painelTurnos.hidden = aba !== "turnos";
+
+    if (aba === "movimentacoes") {
+      carregarMovimentacoesCaixaAtivo();
+    }
+  });
+});
 
 function abrirModalAbrirCaixa() {
   document.getElementById("modal-abrir-caixa").hidden = false;
@@ -2748,6 +3895,7 @@ document.getElementById("form-abrir-caixa").addEventListener("submit", async (e)
     mostrarToast(dados.mensagem, "success");
     fecharModalAbrirCaixa();
     await carregarCaixa();
+    await carregarDashboard();
   } catch (erro) {
     mostrarToast(erro.message, "error");
   }
@@ -2757,17 +3905,13 @@ document.getElementById("form-abrir-caixa").addEventListener("submit", async (e)
 async function abrirModalFecharCaixa() {
   if (!caixaAberto) return;
   try {
-    const dados = await chamarApi(`/caixa/${caixaAberto.id}/movimentacoes`);
-    const totais = {};
-    (dados.movimentacoes || []).forEach((m) => {
-      if (m.tipo === "entrada") {
-        const forma = m.forma_pagamento || "dinheiro";
-        totais[forma] = (totais[forma] || 0) + m.valor;
-      }
-    });
-    const esperado = Object.values(totais).reduce((a, b) => a + b, 0);
+    const dados = await chamarApi(`/caixa/${caixaAberto.id}/resumo`);
+    const resumo = dados.resumo || {};
+    const esperado = resumo.saldo_total || 0;
+    const totais = resumo.totais_por_forma || {};
     document.getElementById("fechamento-resumo").innerHTML = `
-      <div class="fechamento-linha"><span>Valor esperado</span><strong>${formatarMoeda(esperado)}</strong></div>
+      <div class="fechamento-linha"><span>Valor total esperado</span><strong>${formatarMoeda(esperado)}</strong></div>
+      <div class="fechamento-linha"><span>Esperado em dinheiro (gaveta)</span><strong>${formatarMoeda(resumo.saldo_dinheiro || 0)}</strong></div>
       ${Object.entries(totais).map(([forma, valor]) =>
         `<div class="fechamento-linha"><span>${FORMAS_LABEL[forma] || forma}</span><strong>${formatarMoeda(valor)}</strong></div>`
       ).join("")}
@@ -2799,6 +3943,7 @@ document.getElementById("form-fechar-caixa").addEventListener("submit", async (e
     mostrarToast(dados.mensagem, "success");
     fecharModalFecharCaixa();
     await carregarCaixa();
+    await carregarDashboard();
   } catch (erro) {
     mostrarToast(erro.message, "error");
   }
@@ -2840,50 +3985,92 @@ document.getElementById("form-movimento-caixa").addEventListener("submit", async
   }
 });
 
-// ---------------------- PAGAMENTOS ----------------------
+// ---------------------- PAGAMENTOS (FRENTE DE CAIXA) ----------------------
+
+let cachePagamentosCaixa = [];
+
+function renderizarTabelaPagamentosCaixa() {
+  const corpo = document.getElementById("tabela-pagamentos");
+  const empty = document.getElementById("pagamentos-empty");
+  const contador = document.getElementById("caixa-qtd-pagamentos");
+  const inputBusca = document.getElementById("filtro-caixa-busca");
+  const selectForma = document.getElementById("filtro-caixa-forma");
+
+  if (!corpo) return;
+
+  const termo = (inputBusca?.value || "").trim().toLowerCase();
+  const formaFiltro = (selectForma?.value || "todas").toLowerCase();
+
+  let lista = cachePagamentosCaixa;
+
+  if (contador) contador.textContent = String(lista.length);
+
+  if (termo) {
+    lista = lista.filter((p) => {
+      const ticketStr = String(p.ticket_numero || "");
+      const opStr = String(p.operador || "").toLowerCase();
+      return ticketStr.includes(termo) || opStr.includes(termo);
+    });
+  }
+
+  if (formaFiltro && formaFiltro !== "todas") {
+    lista = lista.filter((p) => (p.forma_pagamento || "").toLowerCase() === formaFiltro);
+  }
+
+  corpo.innerHTML = "";
+  if (!lista.length) {
+    if (empty) empty.hidden = false;
+  } else {
+    if (empty) empty.hidden = true;
+    lista.forEach((pagamento) => {
+      const linha = document.createElement("tr");
+      const status = pagamento.status;
+      const badge = status === "ativo" ? "badge-status-ativo" : status === "cancelado" ? "badge-status-cancelado" : "badge-status-estornado";
+      linha.innerHTML = `
+        <td><strong>#${pagamento.ticket_numero || "—"}</strong></td>
+        <td>${formatarDataHora(pagamento.data)}</td>
+        <td class="valor-entrada" style="text-align: right; font-weight: 700;">${formatarMoeda(pagamento.valor)}</td>
+        <td><span class="badge-forma badge-forma-${pagamento.forma_pagamento}">${FORMAS_LABEL[pagamento.forma_pagamento] || pagamento.forma_pagamento}</span></td>
+        <td>${pagamento.operador || "—"}</td>
+        <td style="text-align: center;"><span class="${badge}">${rotuloStatus(status)}</span></td>
+        <td class="col-acoes">
+          ${status === "ativo" ? `
+            <button type="button" class="btn-acao" data-acao-pagamento="cancelar" data-id="${pagamento.id}" title="Cancelar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <button type="button" class="btn-acao btn-acao-danger" data-acao-pagamento="estornar" data-id="${pagamento.id}" title="Estornar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 3v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          ` : ""}
+        </td>
+      `;
+      corpo.appendChild(linha);
+    });
+  }
+}
 
 async function carregarPagamentos() {
   const corpo = document.getElementById("tabela-pagamentos");
-  const empty = document.getElementById("pagamentos-empty");
-  corpo.innerHTML = "";
-
-  let dados;
   try {
-    dados = await chamarApi("/pagamentos");
+    const dados = await chamarApi("/pagamentos");
+    cachePagamentosCaixa = dados.pagamentos || [];
+    renderizarTabelaPagamentosCaixa();
   } catch (erro) {
     mostrarToast(erro.message, "error");
-    corpo.innerHTML = '<tr><td colspan="7" class="table-empty">Erro ao carregar pagamentos.</td></tr>';
-    return;
+    if (corpo) corpo.innerHTML = '<tr><td colspan="7" class="table-empty">Erro ao carregar pagamentos.</td></tr>';
   }
-
-  const pagamentos = dados.pagamentos || [];
-  empty.hidden = pagamentos.length > 0;
-
-  pagamentos.forEach((pagamento) => {
-    const linha = document.createElement("tr");
-    const status = pagamento.status;
-    const badge = status === "ativo" ? "badge-ativo" : status === "cancelado" ? "badge-inativo" : "badge-warn";
-    linha.innerHTML = `
-      <td>${pagamento.ticket_numero || "—"}</td>
-      <td>${formatarDataHora(pagamento.data)}</td>
-      <td class="valor-entrada">${formatarMoeda(pagamento.valor)}</td>
-      <td><span class="badge">${FORMAS_LABEL[pagamento.forma_pagamento] || pagamento.forma_pagamento}</span></td>
-      <td>${pagamento.operador || "—"}</td>
-      <td><span class="badge ${badge}">${rotuloStatus(status)}</span></td>
-      <td class="col-acoes">
-        ${status === "ativo" ? `
-          <button type="button" class="btn-acao" data-acao-pagamento="cancelar" data-id="${pagamento.id}" title="Cancelar">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </button>
-          <button type="button" class="btn-acao btn-acao-danger" data-acao-pagamento="estornar" data-id="${pagamento.id}" title="Estornar">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 3v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-        ` : ""}
-      </td>
-    `;
-    corpo.appendChild(linha);
-  });
 }
+
+// Listeners dos filtros de pagamentos no caixa
+document.getElementById("filtro-caixa-busca")?.addEventListener("input", renderizarTabelaPagamentosCaixa);
+document.getElementById("filtro-caixa-forma")?.addEventListener("change", renderizarTabelaPagamentosCaixa);
+document.getElementById("btn-limpar-busca-caixa")?.addEventListener("click", () => {
+  const b = document.getElementById("filtro-caixa-busca");
+  const f = document.getElementById("filtro-caixa-forma");
+  if (b) b.value = "";
+  if (f) f.value = "todas";
+  renderizarTabelaPagamentosCaixa();
+});
 
 function abrirModalPagamentoAcao(id, tipo) {
   document.getElementById("input-pagamento-acao-id").value = id;
@@ -3629,65 +4816,401 @@ document.getElementById("aud-pag-proxima").addEventListener("click", () => {
   auditoriaPagina++; renderizarAuditoria();
 });
 
-// ---------------------- DASHBOARD FINANCEIRO ----------------------
+// ---------------------- DASHBOARD FINANCEIRO EXECUTIVO ----------------------
 
 let dashCharts = {};
+let cacheDashboardFinanceiro = null;
+let periodoEvolucaoAtivo = "diario"; // "diario" | "mensal" | "anual"
 
-function criarGrafico(canvasId, tipo, labels, valores, cor) {
-  const canvas = document.getElementById(canvasId);
+function renderGraficoEvolucao() {
+  if (!cacheDashboardFinanceiro) return;
+  const canvas = document.getElementById("grafico-dash-evolucao");
   if (!canvas) return;
-  if (dashCharts[canvasId]) dashCharts[canvasId].destroy();
-  dashCharts[canvasId] = new Chart(canvas, {
-    type: tipo,
+
+  let labels = [];
+  let valores = [];
+  let corBorda = "#3b82f6";
+  let corFundo = "rgba(59, 130, 246, 0.7)";
+  let tituloDataset = "Receita Diária";
+
+  if (periodoEvolucaoAtivo === "mensal") {
+    const dados = cacheDashboardFinanceiro.grafico_mensal || { labels: [], valores: [] };
+    labels = dados.labels || [];
+    valores = dados.valores || [];
+    corBorda = "#10b981";
+    corFundo = "rgba(16, 185, 129, 0.7)";
+    tituloDataset = "Receita Mensal";
+  } else if (periodoEvolucaoAtivo === "anual") {
+    const dados = cacheDashboardFinanceiro.grafico_anual || { labels: [], valores: [] };
+    labels = dados.labels || [];
+    valores = dados.valores || [];
+    corBorda = "#f59e0b";
+    corFundo = "rgba(245, 158, 11, 0.7)";
+    tituloDataset = "Receita Anual";
+  } else {
+    const dados = cacheDashboardFinanceiro.grafico_diario || { labels: [], valores: [] };
+    labels = dados.labels || [];
+    valores = dados.valores || [];
+    corBorda = "#3b82f6";
+    corFundo = "rgba(59, 130, 246, 0.7)";
+    tituloDataset = "Receita Diária";
+  }
+
+  // Calcula pico do periodo ativo
+  const picoPeriodo = valores.length > 0 ? Math.max(...valores) : 0;
+  const picoEl = document.getElementById("dash-pico-periodo");
+  if (picoEl) picoEl.textContent = formatarMoeda(picoPeriodo);
+
+  if (dashCharts["grafico-dash-evolucao"]) {
+    dashCharts["grafico-dash-evolucao"].destroy();
+  }
+
+  dashCharts["grafico-dash-evolucao"] = new Chart(canvas, {
+    type: "bar",
     data: {
       labels,
       datasets: [{
-        label: "R$",
+        label: tituloDataset,
         data: valores,
-        backgroundColor: cor,
-        borderColor: cor,
-        borderWidth: 1,
+        backgroundColor: corFundo,
+        borderColor: corBorda,
+        borderWidth: 1.5,
+        borderRadius: 5,
+        maxBarThickness: 36,
       }],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${formatarMoeda(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: (v) => formatarMoeda(v)
+          },
+          grid: {
+            color: "#f1f5f9"
+          }
+        },
+        x: {
+          grid: {
+            display: false
+          }
+        }
+      },
     },
   });
 }
 
-async function carregarDashboardFinanceiro() {
-  let dados;
-  try {
-    dados = await chamarApi("/dashboard-financeiro");
-  } catch (erro) {
-    mostrarToast(erro.message, "error");
+function renderMixFormasPagamento(porForma) {
+  const canvas = document.getElementById("grafico-dash-forma");
+  const corpoTabela = document.getElementById("tabela-dash-formas-corpo");
+  if (!canvas || !corpoTabela) return;
+
+  const entradas = Object.entries(porForma || {}).filter(([, v]) => v > 0);
+  const total = entradas.reduce((acc, [, v]) => acc + v, 0);
+
+  const paletaCores = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444", "#64748b"];
+
+  if (dashCharts["grafico-dash-forma"]) {
+    dashCharts["grafico-dash-forma"].destroy();
+  }
+
+  if (entradas.length === 0) {
+    corpoTabela.innerHTML = '<tr><td colspan="3" class="table-empty" style="padding: 24px; text-align: center; color: var(--color-text-muted);">Nenhum pagamento registrado no mês.</td></tr>';
+    // Cria donut vazio cinza
+    dashCharts["grafico-dash-forma"] = new Chart(canvas, {
+      type: "doughnut",
+      data: {
+        labels: ["Sem dados"],
+        datasets: [{ data: [1], backgroundColor: ["#e2e8f0"] }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        cutout: "70%",
+      }
+    });
     return;
   }
 
-  document.getElementById("dash-receita-dia").textContent = formatarMoeda(dados.receita_dia);
-  document.getElementById("dash-receita-mes").textContent = formatarMoeda(dados.receita_mes);
-  document.getElementById("dash-receita-ano").textContent = formatarMoeda(dados.receita_ano);
-  document.getElementById("dash-tickets").textContent = dados.quantidade_tickets;
-  document.getElementById("dash-ticket-medio").textContent = formatarMoeda(dados.ticket_medio);
+  // Ordena por maior valor
+  entradas.sort((a, b) => b[1] - a[1]);
 
-  criarGrafico("grafico-dash-diario", "bar", dados.grafico_diario.labels, dados.grafico_diario.valores, "rgba(59,130,246,0.7)");
-  criarGrafico("grafico-dash-mensal", "bar", dados.grafico_mensal.labels, dados.grafico_mensal.valores, "rgba(16,185,129,0.7)");
+  const labels = entradas.map(([k]) => FORMAS_LABEL[k] || k);
+  const valores = entradas.map(([, v]) => v);
+  const cores = entradas.map((_, i) => paletaCores[i % paletaCores.length]);
 
-  const formas = Object.entries(dados.receita_por_forma || {});
-  criarGrafico(
-    "grafico-dash-forma",
-    "doughnut",
-    formas.map(([k]) => FORMAS_LABEL[k] || k),
-    formas.map(([, v]) => v),
-    ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#14b8a6", "#ec4899"]
-  );
+  dashCharts["grafico-dash-forma"] = new Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{
+        data: valores,
+        backgroundColor: cores,
+        borderWidth: 2,
+        borderColor: "#ffffff",
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const val = ctx.parsed;
+              const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+              return ` ${ctx.label}: ${formatarMoeda(val)} (${pct}%)`;
+            }
+          }
+        }
+      },
+      cutout: "68%",
+    },
+  });
 
-  const horarios = Object.entries(dados.receita_por_horario || {});
-  criarGrafico("grafico-dash-horario", "line", horarios.map(([k]) => k), horarios.map(([, v]) => v), "rgba(139,92,246,0.7)");
+  // Tabela analítica ao lado
+  corpoTabela.innerHTML = "";
+  entradas.forEach(([k, val], i) => {
+    const nome = FORMAS_LABEL[k] || k;
+    const cor = cores[i];
+    const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>
+        <div class="fin-payment-name">
+          <span class="fin-dot" style="background: ${cor};"></span>
+          <span>${nome}</span>
+        </div>
+      </td>
+      <td class="fin-payment-val">${formatarMoeda(val)}</td>
+      <td class="fin-payment-pct">${pct}%</td>
+    `;
+    corpoTabela.appendChild(tr);
+  });
 }
+
+function renderFluxoHorario(porHorario, pico) {
+  const canvas = document.getElementById("grafico-dash-horario");
+  if (!canvas) return;
+
+  const entradas = Object.entries(porHorario || {});
+  const labels = entradas.map(([k]) => k);
+  const valores = entradas.map(([, v]) => v);
+
+  // Badge do pico
+  const badgePico = document.getElementById("dash-badge-pico");
+  if (pico && pico.valor > 0) {
+    document.getElementById("dash-hora-pico").textContent = pico.hora;
+    document.getElementById("dash-valor-pico").textContent = formatarMoeda(pico.valor);
+    if (badgePico) badgePico.hidden = false;
+  } else {
+    if (badgePico) badgePico.hidden = true;
+  }
+
+  if (dashCharts["grafico-dash-horario"]) {
+    dashCharts["grafico-dash-horario"].destroy();
+  }
+
+  dashCharts["grafico-dash-horario"] = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Receita",
+        data: valores,
+        borderColor: "#8b5cf6",
+        backgroundColor: "rgba(139, 92, 246, 0.12)",
+        fill: true,
+        tension: 0.35,
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: "#8b5cf6",
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `Receita: ${formatarMoeda(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: (v) => formatarMoeda(v) },
+          grid: { color: "#f1f5f9" }
+        },
+        x: {
+          grid: { display: false }
+        }
+      },
+    },
+  });
+}
+
+function renderRankingOperadores(topOperadores) {
+  const container = document.getElementById("dash-ranking-operadores");
+  const emptyEl = document.getElementById("dash-ranking-empty");
+  if (!container) return;
+
+  container.innerHTML = "";
+  if (!topOperadores || !topOperadores.length) {
+    if (emptyEl) emptyEl.hidden = false;
+    return;
+  }
+  if (emptyEl) emptyEl.hidden = true;
+
+  const maxVal = Math.max(...topOperadores.map((o) => o.valor)) || 1;
+
+  topOperadores.forEach((op, idx) => {
+    const posClass = idx === 0 ? "top1" : idx === 1 ? "top2" : idx === 2 ? "top3" : "";
+    const pct = Math.max(8, Math.round((op.valor / maxVal) * 100));
+
+    const item = document.createElement("div");
+    item.className = "fin-ranking-item";
+    item.innerHTML = `
+      <div class="fin-ranking-header">
+        <span class="fin-ranking-name">
+          <span class="fin-rank-pos ${posClass}">${idx + 1}º</span>
+          ${op.nome || "Operador"}
+        </span>
+        <span class="fin-ranking-val">${formatarMoeda(op.valor)}</span>
+      </div>
+      <div class="fin-ranking-track">
+        <div class="fin-ranking-fill" style="width: ${pct}%;"></div>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function renderComparativoMensal(comp) {
+  const c = comp || { mes_atual: 0, mes_anterior: 0, variacao_percentual: 0 };
+  const atual = c.mes_atual || 0;
+  const anterior = c.mes_anterior || 0;
+  const diff = atual - anterior;
+  const pct = c.variacao_percentual || 0;
+
+  const elAnt = document.getElementById("dash-comp-anterior");
+  const elAtu = document.getElementById("dash-comp-atual");
+  const elDiff = document.getElementById("dash-comp-diff");
+  const badgeVariacao = document.getElementById("dash-badge-variacao");
+  const textoVariacao = document.getElementById("dash-texto-variacao");
+
+  if (elAnt) elAnt.textContent = formatarMoeda(anterior);
+  if (elAtu) elAtu.textContent = formatarMoeda(atual);
+
+  if (elDiff) {
+    if (diff > 0) {
+      elDiff.textContent = `+${formatarMoeda(diff)} (+${pct}%)`;
+      elDiff.style.color = "#059669";
+    } else if (diff < 0) {
+      elDiff.textContent = `${formatarMoeda(diff)} (${pct}%)`;
+      elDiff.style.color = "#dc2626";
+    } else {
+      elDiff.textContent = `R$ 0,00 (0.0%)`;
+      elDiff.style.color = "#64748b";
+    }
+  }
+
+  // Badge do Topo
+  if (badgeVariacao && textoVariacao) {
+    badgeVariacao.classList.remove("trend-positive", "trend-negative", "trend-neutral");
+    if (diff > 0) {
+      badgeVariacao.classList.add("trend-positive");
+      textoVariacao.textContent = `+${pct}% vs mês anterior`;
+    } else if (diff < 0) {
+      badgeVariacao.classList.add("trend-negative");
+      textoVariacao.textContent = `${pct}% vs mês anterior`;
+    } else {
+      badgeVariacao.classList.add("trend-neutral");
+      textoVariacao.textContent = `0% vs mês anterior`;
+    }
+  }
+
+  const subMes = document.getElementById("dash-sub-receita-mes");
+  if (subMes) {
+    if (diff > 0) {
+      subMes.innerHTML = `<span style="color: #059669; font-weight: 600;">▲ +${pct}%</span> vs mês anterior`;
+    } else if (diff < 0) {
+      subMes.innerHTML = `<span style="color: #dc2626; font-weight: 600;">▼ ${pct}%</span> vs mês anterior`;
+    } else {
+      subMes.textContent = "Acumulado mensal";
+    }
+  }
+}
+
+async function carregarDashboardFinanceiro() {
+  try {
+    const dados = await chamarApi("/dashboard-financeiro");
+    cacheDashboardFinanceiro = dados;
+
+    // 1. Cockpit de Indicadores Chave
+    document.getElementById("dash-receita-dia").textContent = formatarMoeda(dados.receita_dia);
+    document.getElementById("dash-receita-mes").textContent = formatarMoeda(dados.receita_mes);
+    document.getElementById("dash-receita-ano").textContent = formatarMoeda(dados.receita_ano);
+    document.getElementById("dash-tickets").textContent = dados.quantidade_tickets;
+    document.getElementById("dash-ticket-medio").textContent = formatarMoeda(dados.ticket_medio);
+    if (document.getElementById("dash-media-diaria")) {
+      document.getElementById("dash-media-diaria").textContent = formatarMoeda(dados.media_diaria_mes || 0);
+    }
+
+    // 2. Gráfico de Evolução com abas
+    renderGraficoEvolucao();
+
+    // 3. Mix de Pagamentos
+    renderMixFormasPagamento(dados.receita_por_forma);
+
+    // 4. Fluxo por Horário
+    renderFluxoHorario(dados.receita_por_horario, dados.pico_horario);
+
+    // 5. Ranking dos Operadores
+    renderRankingOperadores(dados.top_operadores);
+
+    // 6. Comparativo Mensal
+    renderComparativoMensal(dados.comparativo_mensal);
+
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+}
+
+// Listeners de alternancia de periodo e botoes do Dashboard Financeiro
+document.querySelectorAll("#tabs-periodo-dash-fin .btn-fin-tab").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#tabs-periodo-dash-fin .btn-fin-tab").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    periodoEvolucaoAtivo = btn.dataset.periodo;
+    renderGraficoEvolucao();
+  });
+});
+
+document.getElementById("btn-refresh-dash-fin")?.addEventListener("click", () => {
+  carregarDashboardFinanceiro();
+  mostrarToast("Dashboard Financeiro atualizado!", "success");
+});
+
+document.getElementById("btn-ir-relatorios-fin")?.addEventListener("click", () => {
+  mostrarView("view-relatorios");
+});
 
 // ---------------------- RELATORIOS FINANCEIROS (agrupamento + grafico) ----------------------
 
@@ -3782,6 +5305,250 @@ document.getElementById("btn-exportar-relatorio-pdf").addEventListener("click", 
   window.open(`/api/relatorio-financeiro/exportar?agrupamento=${relatorioAgrupamento}&formato=pdf`, "_blank");
 });
 
+// ---------------------- RELATORIOS: PAGAMENTOS POR FORMA DE PAGAMENTO ----------------------
+
+let relatorioPagamentosInicializado = false;
+
+function definirPeriodoRapidoPagamentos(tipo) {
+  const agora = new Date();
+  const formatarYMD = (d) => {
+    const a = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dia = String(d.getDate()).padStart(2, "0");
+    return `${a}-${m}-${dia}`;
+  };
+
+  const inputInicio = document.getElementById("filtro-pag-inicio");
+  const inputFim = document.getElementById("filtro-pag-fim");
+
+  if (!inputInicio || !inputFim) return;
+
+  if (tipo === "hoje") {
+    inputInicio.value = formatarYMD(agora);
+    inputFim.value = formatarYMD(agora);
+  } else if (tipo === "ontem") {
+    const ontem = new Date(agora);
+    ontem.setDate(ontem.getDate() - 1);
+    inputInicio.value = formatarYMD(ontem);
+    inputFim.value = formatarYMD(ontem);
+  } else if (tipo === "7d") {
+    const d7 = new Date(agora);
+    d7.setDate(d7.getDate() - 6);
+    inputInicio.value = formatarYMD(d7);
+    inputFim.value = formatarYMD(agora);
+  } else if (tipo === "30d") {
+    const d30 = new Date(agora);
+    d30.setDate(d30.getDate() - 29);
+    inputInicio.value = formatarYMD(d30);
+    inputFim.value = formatarYMD(agora);
+  } else if (tipo === "mes_atual") {
+    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+    inputInicio.value = formatarYMD(inicioMes);
+    inputFim.value = formatarYMD(agora);
+  } else if (tipo === "mes_anterior") {
+    const inicioMesAnt = new Date(agora.getFullYear(), agora.getMonth() - 1, 1);
+    const fimMesAnt = new Date(agora.getFullYear(), agora.getMonth(), 0);
+    inputInicio.value = formatarYMD(inicioMesAnt);
+    inputFim.value = formatarYMD(fimMesAnt);
+  } else if (tipo === "tudo") {
+    inputInicio.value = "";
+    inputFim.value = "";
+  }
+
+  document.querySelectorAll(".periodo-atalhos .btn-atalho").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.periodo === tipo);
+  });
+}
+
+async function carregarFormasPagamentoRelatorio() {
+  const select = document.getElementById("filtro-pag-forma");
+  if (!select || select.dataset.carregado === "1") return;
+  try {
+    const dados = await chamarApi("/formas-pagamento");
+    const formas = dados.formas_pagamento || [];
+    select.innerHTML = '<option value="todas">Todas as formas</option>';
+    formas.forEach((f) => {
+      const opt = document.createElement("option");
+      opt.value = f.codigo;
+      opt.textContent = f.nome;
+      select.appendChild(opt);
+    });
+    select.dataset.carregado = "1";
+  } catch (e) {
+    // fallback silencioso
+  }
+}
+
+async function carregarRelatorioPagamentos() {
+  const inputInicio = document.getElementById("filtro-pag-inicio");
+  const inputFim = document.getElementById("filtro-pag-fim");
+  const selectForma = document.getElementById("filtro-pag-forma");
+  const selectStatus = document.getElementById("filtro-pag-status");
+
+  if (!inputInicio) return;
+
+  const inicio = inputInicio.value;
+  const fim = inputFim.value;
+  const forma = selectForma ? selectForma.value : "todas";
+  const status = selectStatus ? selectStatus.value : "ativo";
+
+  const params = new URLSearchParams();
+  if (inicio) params.append("data_inicio", inicio);
+  if (fim) params.append("data_fim", fim);
+  if (forma && forma !== "todas") params.append("forma_pagamento", forma);
+  if (status) params.append("status", status);
+
+  try {
+    const dados = await chamarApi(`/relatorio-pagamentos?${params.toString()}`);
+
+    // Cards de resumo
+    const elReceita = document.getElementById("card-pag-receita");
+    const elQtd = document.getElementById("card-pag-quantidade");
+    const elTicketMedio = document.getElementById("card-pag-ticket-medio");
+
+    if (elReceita) elReceita.textContent = formatarMoeda(dados.receita_total);
+    if (elQtd) elQtd.textContent = dados.quantidade_total;
+    if (elTicketMedio) elTicketMedio.textContent = formatarMoeda(dados.ticket_medio);
+
+    // Tabela consolidada de distribuicao por forma
+    const corpoFormas = document.getElementById("tabela-pag-resumo-formas");
+    if (corpoFormas) {
+      corpoFormas.innerHTML = "";
+      const resumoFormas = dados.resumo_formas || [];
+      if (!resumoFormas.length) {
+        corpoFormas.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhum pagamento registrado no filtro selecionado.</td></tr>';
+      } else {
+        resumoFormas.forEach((rf) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>
+              <span class="badge-forma badge-forma-${rf.codigo}">${rf.nome}</span>
+            </td>
+            <td style="text-align: right; font-weight: 600;">${rf.quantidade}</td>
+            <td style="text-align: right; font-weight: 700; color: #0f172a;">${formatarMoeda(rf.receita)}</td>
+            <td>
+              <div class="progresso-container">
+                <div class="progresso-barra">
+                  <div class="progresso-preenchimento" style="width: ${Math.min(rf.percentual, 100)}%;"></div>
+                </div>
+                <span class="progresso-pct">${rf.percentual}%</span>
+              </div>
+            </td>
+            <td style="text-align: right; color: var(--color-text-light);">${formatarMoeda(rf.ticket_medio)}</td>
+          `;
+          corpoFormas.appendChild(tr);
+        });
+      }
+    }
+
+    // Tabela analitica das transacoes
+    const corpoTransacoes = document.getElementById("tabela-pag-transacoes");
+    const emptyTransacoes = document.getElementById("pag-transacoes-empty");
+    const contadorTransacoes = document.getElementById("pag-transacoes-contador");
+
+    if (corpoTransacoes) {
+      corpoTransacoes.innerHTML = "";
+      const transacoes = dados.transacoes || [];
+      if (contadorTransacoes) contadorTransacoes.textContent = `${transacoes.length} transação(ões)`;
+
+      if (!transacoes.length) {
+        if (emptyTransacoes) emptyTransacoes.hidden = false;
+      } else {
+        if (emptyTransacoes) emptyTransacoes.hidden = true;
+        transacoes.forEach((t) => {
+          const tr = document.createElement("tr");
+          const statusClasse = t.status === "ativo" ? "badge-status-ativo" : (t.status === "estornado" ? "badge-status-estornado" : "badge-status-cancelado");
+          tr.innerHTML = `
+            <td><strong>#${t.ticket_numero || "—"}</strong></td>
+            <td>${formatarDataHora(t.data)}</td>
+            <td>${t.operador || "—"}</td>
+            <td><span class="badge-forma badge-forma-${t.forma_pagamento}">${t.forma_pagamento_nome}</span></td>
+            <td style="text-align: right; font-weight: 700; color: #047857;">${formatarMoeda(t.valor)}</td>
+            <td style="text-align: center;"><span class="${statusClasse}">${rotuloStatus(t.status)}</span></td>
+          `;
+          corpoTransacoes.appendChild(tr);
+        });
+      }
+    }
+  } catch (erro) {
+    mostrarToast(erro.message, "error");
+  }
+}
+
+// Alternancia de abas em Relatorios
+document.querySelectorAll(".relatorio-tabs .tab").forEach((tabBtn) => {
+  tabBtn.addEventListener("click", () => {
+    document.querySelectorAll(".relatorio-tabs .tab").forEach((t) => t.classList.remove("active"));
+    tabBtn.classList.add("active");
+    const aba = tabBtn.dataset.relatorioTab;
+    const painelGeral = document.getElementById("relatorio-tab-geral");
+    const painelPagamentos = document.getElementById("relatorio-tab-pagamentos");
+
+    if (aba === "pagamentos") {
+      if (painelGeral) painelGeral.hidden = true;
+      if (painelPagamentos) painelPagamentos.hidden = false;
+      if (!relatorioPagamentosInicializado) {
+        definirPeriodoRapidoPagamentos("7d");
+        relatorioPagamentosInicializado = true;
+      }
+      carregarFormasPagamentoRelatorio();
+      carregarRelatorioPagamentos();
+    } else {
+      if (painelGeral) painelGeral.hidden = false;
+      if (painelPagamentos) painelPagamentos.hidden = true;
+      carregarRelatoriosFinanceiros();
+    }
+  });
+});
+
+// Botoes de atalho de periodo
+document.querySelectorAll(".periodo-atalhos .btn-atalho").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    definirPeriodoRapidoPagamentos(btn.dataset.periodo);
+    carregarRelatorioPagamentos();
+  });
+});
+
+// Acoes de filtrar e limpar
+const btnFiltrarPag = document.getElementById("btn-filtrar-pagamentos");
+if (btnFiltrarPag) {
+  btnFiltrarPag.addEventListener("click", () => {
+    document.querySelectorAll(".periodo-atalhos .btn-atalho").forEach((b) => b.classList.remove("active"));
+    carregarRelatorioPagamentos();
+  });
+}
+
+const btnLimparPag = document.getElementById("btn-limpar-filtro-pagamentos");
+if (btnLimparPag) {
+  btnLimparPag.addEventListener("click", () => {
+    definirPeriodoRapidoPagamentos("tudo");
+    const sf = document.getElementById("filtro-pag-forma");
+    const ss = document.getElementById("filtro-pag-status");
+    if (sf) sf.value = "todas";
+    if (ss) ss.value = "ativo";
+    carregarRelatorioPagamentos();
+  });
+}
+
+// Exportacao CSV do relatorio de pagamentos por forma
+const btnExportarCsvPag = document.getElementById("btn-exportar-pagamentos-csv");
+if (btnExportarCsvPag) {
+  btnExportarCsvPag.addEventListener("click", () => {
+    const inicio = document.getElementById("filtro-pag-inicio")?.value || "";
+    const fim = document.getElementById("filtro-pag-fim")?.value || "";
+    const forma = document.getElementById("filtro-pag-forma")?.value || "";
+    const status = document.getElementById("filtro-pag-status")?.value || "ativo";
+
+    const params = new URLSearchParams();
+    if (inicio) params.append("data_inicio", inicio);
+    if (fim) params.append("data_fim", fim);
+    if (forma && forma !== "todas") params.append("forma_pagamento", forma);
+    if (status) params.append("status", status);
+
+    window.open(`/api/relatorio-pagamentos/exportar?${params.toString()}`, "_blank");
+  });
+}
+
 // ---------------------- SESSAO / LOGOUT / ALTERAR SENHA ----------------------
 
 let sessionEmpresaId = null;
@@ -3803,9 +5570,15 @@ async function carregarSessao() {
     // Header: empresa atual + botao trocar empresa (somente master)
     const headerEmpresa = document.getElementById("header-empresa-nome");
     const btnTrocar = document.getElementById("btn-trocar-empresa");
-    if (usuario.empresa && headerEmpresa) {
-      headerEmpresa.textContent = `🏢 ${usuario.empresa.nome_fantasia}`;
-      headerEmpresa.hidden = false;
+    if (usuario.empresa) {
+      const nomeEstacionamento = (usuario.empresa.nome_fantasia || usuario.empresa.razao_social || "").trim();
+      if (nomeEstacionamento) {
+        aplicarNomeSistema(nomeEstacionamento);
+      }
+      if (headerEmpresa) {
+        headerEmpresa.textContent = `🏢 ${nomeEstacionamento}`;
+        headerEmpresa.hidden = false;
+      }
     } else if (headerEmpresa) {
       headerEmpresa.hidden = true;
     }
@@ -3839,7 +5612,7 @@ async function carregarSessao() {
 
       // Se a view ativa nao tiver permissao "ver", volta para a visao geral
       const viewAtiva = document.querySelector(".view.view-active");
-      if (viewAtiva) {
+      if (viewAtiva && viewAtiva.id !== "view-visao-geral") {
         const modulo = MENU_PERMISSAO[viewAtiva.id];
         if (modulo) {
           const permitido = (permissoesMatriz[modulo] && permissoesMatriz[modulo][usuario.perfil] || []).includes("ver");
@@ -3864,6 +5637,8 @@ document.getElementById("btn-logout").addEventListener("click", async () => {
   } catch (erro) {
     // ignora erro de rede no logout
   }
+  localStorage.removeItem("estaciona_view");
+  localStorage.removeItem("estaciona_aba");
   window.location.href = "/login";
 });
 
@@ -4482,6 +6257,10 @@ document.getElementById("form-ticket-perdido").addEventListener("submit", async 
     document.getElementById("modal-ticket-perdido").hidden = true;
     document.getElementById("form-ticket-perdido").reset();
     await carregarDashboard();
+    await recarregarAbaAtual();
+    if (dados.ticket) {
+      mostrarReciboSaida(dados.ticket);
+    }
   } catch (erro) {
     mostrarToast(erro.message, "error");
   }
@@ -4533,40 +6312,54 @@ async function carregarOcupacaoDRE() {
 
 // ---------------------- INICIALIZACAO ----------------------
 
-// Restaura a view e a aba em que o usuario estava (mantem a pagina ao F5/atualizar)
-const viewSalva = localStorage.getItem("estaciona_view");
 const viewsValidas = [
   "view-visao-geral", "view-empresas", "view-usuarios", "view-clientes", "view-financeiro",
   "view-caixa", "view-pagamentos", "view-formas-pagamento", "view-mensalistas", "view-convenios",
   "view-contas-receber", "view-descontos", "view-cortesias",
   "view-dashboard-financeiro", "view-auditoria", "view-relatorios",
   "view-nfse", "view-lista-negra", "view-reservas", "view-ocorrencias",
-  "view-notificacoes", "view-configuracoes",
+  "view-notificacoes", "view-configuracoes", "view-permissoes",
 ];
-if (viewSalva && viewsValidas.includes(viewSalva)) {
-  mostrarView(viewSalva);
+
+async function inicializarApp() {
+  atualizarDataHeader();
+
+  const abaSalva = localStorage.getItem("estaciona_aba");
+  if (abaSalva && ["patio", "historico", "consultar"].includes(abaSalva)) {
+    abaAtual = abaSalva;
+    document.querySelectorAll(".tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.tab === abaSalva);
+    });
+  }
+
+  // 1. Carrega sessao e matriz de permissoes do usuario
+  await carregarSessao();
+
+  // 2. Determina a tela inicial garantindo que o usuario possua permissao
+  const viewSalva = localStorage.getItem("estaciona_view");
+  let viewInicial = "view-visao-geral";
+
+  if (viewSalva && viewsValidas.includes(viewSalva) && viewSalva !== "view-visao-geral") {
+    const modulo = MENU_PERMISSAO[viewSalva];
+    const permitido = !modulo || perfilUsuarioAtual === "admin" || (
+      permissoesMatriz && permissoesMatriz[modulo] && permissoesMatriz[modulo][perfilUsuarioAtual] || []
+    ).includes("ver");
+    if (permitido) {
+      viewInicial = viewSalva;
+    }
+  }
+
+  mostrarView(viewInicial);
 }
 
-const abaSalva = localStorage.getItem("estaciona_aba");
-if (abaSalva && ["patio", "historico", "consultar"].includes(abaSalva)) {
-  abaAtual = abaSalva;
-  document.querySelectorAll(".tab").forEach((t) => {
-    t.classList.toggle("active", t.dataset.tab === abaSalva);
-  });
-}
-
-atualizarDataHeader();
-carregarSessao();
-carregarEmpresas();
-carregarDashboard();
-carregarPatio();
-carregarUsuarios();
-carregarClientes();
-carregarConfiguracoes();
+inicializarApp();
 
 setInterval(() => {
-  carregarDashboard();
-  if (!inputBusca.value.trim()) recarregarAbaAtual();
+  const viewAtiva = document.querySelector(".view.view-active");
+  if (viewAtiva && viewAtiva.id === "view-visao-geral") {
+    carregarDashboard();
+    if (!inputBusca.value.trim()) recarregarAbaAtual();
+  }
 }, 15000);
 
 // ESC fecha o modal visível (reutiliza o proprio botao de fechar, preservando o estado)
@@ -4578,4 +6371,126 @@ document.addEventListener("keydown", (evento) => {
   const btnFechar = overlay.querySelector(".modal-close");
   if (btnFechar) btnFechar.click();
   else overlay.hidden = true;
+});
+
+// ---------------------- ACESSO MOBILE & TERMINAL OPERADOR ----------------------
+
+async function abrirModalAcessoMobile() {
+  const modal = document.getElementById("modal-acesso-mobile");
+  if (!modal) return;
+
+  modal.hidden = false;
+  const inputUrl = document.getElementById("input-mobile-url");
+  const linkAbrir = document.getElementById("link-abrir-modo-mobile");
+  const qrImg = document.getElementById("mobile-qr-img");
+  const qrLoading = document.getElementById("mobile-qr-loading");
+
+  if (qrLoading) qrLoading.style.display = "block";
+  if (qrImg) qrImg.style.display = "none";
+
+  let urlFinal = window.location.origin;
+
+  try {
+    const dados = await chamarApi("/acesso-mobile");
+    if (dados && dados.url_acesso) {
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        urlFinal = dados.url_acesso;
+      } else {
+        urlFinal = window.location.origin;
+      }
+    }
+  } catch (e) {
+    urlFinal = window.location.origin;
+  }
+
+  if (inputUrl) inputUrl.value = urlFinal;
+  if (linkAbrir) linkAbrir.href = urlFinal;
+
+  // Gera o QR code para acesso instantaneo no celular
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(urlFinal)}`;
+  if (qrImg) {
+    qrImg.onload = () => {
+      if (qrLoading) qrLoading.style.display = "none";
+      qrImg.style.display = "block";
+    };
+    qrImg.onerror = () => {
+      if (qrLoading) qrLoading.textContent = "Erro ao carregar QR Code. Utilize o link abaixo.";
+    };
+    qrImg.src = qrApiUrl;
+  }
+}
+
+function fecharModalAcessoMobile() {
+  const modal = document.getElementById("modal-acesso-mobile");
+  if (modal) modal.hidden = true;
+}
+
+document.getElementById("btn-abrir-acesso-mobile")?.addEventListener("click", abrirModalAcessoMobile);
+document.getElementById("menu-btn-acesso-mobile")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  abrirModalAcessoMobile();
+  fecharSidebar();
+});
+document.getElementById("modal-acesso-mobile-fechar")?.addEventListener("click", fecharModalAcessoMobile);
+document.getElementById("btn-fechar-acesso-mobile")?.addEventListener("click", fecharModalAcessoMobile);
+document.getElementById("modal-acesso-mobile")?.addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) fecharModalAcessoMobile();
+});
+
+document.getElementById("btn-copiar-mobile-url")?.addEventListener("click", async () => {
+  const inputUrl = document.getElementById("input-mobile-url");
+  if (!inputUrl) return;
+  try {
+    await navigator.clipboard.writeText(inputUrl.value);
+    mostrarToast("Link de acesso copiado com sucesso!", "success");
+  } catch (err) {
+    inputUrl.select();
+    document.execCommand("copy");
+    mostrarToast("Link copiado!", "success");
+  }
+});
+
+// ---------------------- BARRA DE NAVEGAÇÃO INFERIOR MOBILE ----------------------
+
+document.getElementById("btn-mnav-entrada")?.addEventListener("click", () => {
+  mostrarView("view-visao-geral");
+  document.querySelectorAll(".btn-mobile-nav").forEach(b => b.classList.remove("active"));
+  document.getElementById("btn-mnav-entrada")?.classList.add("active");
+  const inputPlaca = document.getElementById("input-placa");
+  if (inputPlaca) {
+    inputPlaca.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => inputPlaca.focus(), 300);
+  }
+});
+
+document.getElementById("btn-mnav-patio")?.addEventListener("click", () => {
+  mostrarView("view-visao-geral");
+  document.querySelectorAll(".btn-mobile-nav").forEach(b => b.classList.remove("active"));
+  document.getElementById("btn-mnav-patio")?.classList.add("active");
+  const tabPatio = document.getElementById("tab-count-patio");
+  if (tabPatio) tabPatio.click();
+  const vehicleList = document.getElementById("vehicle-list");
+  if (vehicleList) vehicleList.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+document.getElementById("btn-mnav-saida")?.addEventListener("click", () => {
+  mostrarView("view-visao-geral");
+  document.querySelectorAll(".btn-mobile-nav").forEach(b => b.classList.remove("active"));
+  document.getElementById("btn-mnav-saida")?.classList.add("active");
+  const inputBusca = document.getElementById("input-busca");
+  if (inputBusca) {
+    inputBusca.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => inputBusca.focus(), 300);
+    mostrarToast("Digite a placa ou ticket para registrar a saída", "info");
+  }
+});
+
+document.getElementById("btn-mnav-vagas")?.addEventListener("click", () => {
+  document.querySelectorAll(".btn-mobile-nav").forEach(b => b.classList.remove("active"));
+  document.getElementById("btn-mnav-vagas")?.classList.add("active");
+  abrirMapaVagas();
+});
+
+document.getElementById("btn-mnav-menu")?.addEventListener("click", () => {
+  abrirSidebar();
 });

@@ -59,9 +59,12 @@ class BackupService:
 
         # Configuracao (atributo, nao metodo)
         try:
-            backup["dados"]["config"] = self.services.get("servico").config.to_dict()
+            cfg_dict = self.services.get("servico").config.to_dict()
+            backup["dados"]["config"] = cfg_dict
+            backup["dados"]["configuracao"] = cfg_dict
         except Exception:
             backup["dados"]["config"] = {}
+            backup["dados"]["configuracao"] = {}
 
         # Movimentacoes de caixa (por caixa)
         movimentacoes = []

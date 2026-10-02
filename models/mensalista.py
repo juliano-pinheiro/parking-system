@@ -31,6 +31,8 @@ class Mensalista:
     cpf_cnpj: str = ""
     telefone: str = ""
     email: str = ""
+    placa: str = ""                     # Placa do veiculo do mensalista
+    tipo_veiculo: str = "Carro"         # Categoria do veiculo
     valor_mensal: float = 0.0
     dia_vencimento: int = 5
     status: str = STATUS_ATIVO
@@ -50,6 +52,8 @@ class Mensalista:
             cpf_cnpj=dados.get("cpf_cnpj", ""),
             telefone=dados.get("telefone", ""),
             email=dados.get("email", ""),
+            placa=(dados.get("placa") or "").strip().upper(),
+            tipo_veiculo=dados.get("tipo_veiculo", "Carro") or "Carro",
             valor_mensal=dados.get("valor_mensal", 0.0),
             dia_vencimento=dados.get("dia_vencimento", 5),
             status=dados.get("status", STATUS_ATIVO),

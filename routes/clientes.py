@@ -145,13 +145,15 @@ def api_criar_mensalista():
     dados = request.get_json(silent=True) or {}
     try:
         mensalista = servico_mensalistas.criar(
-            nome=dados.get("nome", ""),
+            nome=dados.get("nome"),
             cpf_cnpj=dados.get("cpf_cnpj", ""),
             telefone=dados.get("telefone", ""),
             email=dados.get("email", ""),
             valor_mensal=dados.get("valor_mensal", 0),
             dia_vencimento=dados.get("dia_vencimento", 5),
             cliente_id=dados.get("cliente_id"),
+            placa=dados.get("placa", ""),
+            tipo_veiculo=dados.get("tipo_veiculo", "Carro"),
         )
     except ValueError as erro:
         return jsonify({"erro": str(erro)}), 400
@@ -175,6 +177,8 @@ def api_atualizar_mensalista(id_mensalista: int):
             valor_mensal=dados.get("valor_mensal"),
             dia_vencimento=dados.get("dia_vencimento"),
             status=dados.get("status"),
+            placa=dados.get("placa"),
+            tipo_veiculo=dados.get("tipo_veiculo"),
         )
     except ValueError as erro:
         return jsonify({"erro": str(erro)}), 400

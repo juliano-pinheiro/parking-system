@@ -260,10 +260,22 @@ class FinanceiroService:
     def _filtrar_por_periodo(self, inicio: str, fim: str) -> List[Lancamento]:
         """Filtra lancamentos cuja data esteja entre inicio e fim (dd/mm/aaaa)."""
         resultado = []
+        try:
+            dt_inicio = datetime.strptime(inicio, "%d/%m/%Y").date()
+            dt_fim = datetime.strptime(fim, "%d/%m/%Y").date()
+        except (ValueError, TypeError):
+            return list(self.lancamentos)
+
         for lancamento in self.lancamentos:
-            data_lanc = lancamento.data.split(" ")[0]
-            if inicio <= data_lanc <= fim:
-                resultado.append(lancamento)
+            if not lancamento.data:
+                continue
+            data_lanc_str = lancamento.data.split(" ")[0].strip()
+            try:
+                dt_lanc = datetime.strptime(data_lanc_str, "%d/%m/%Y").date()
+                if dt_inicio <= dt_lanc <= dt_fim:
+                    resultado.append(lancamento)
+            except (ValueError, TypeError):
+                continue
         return resultado
 
     def resumo_periodo(self, inicio: str, fim: str) -> dict:

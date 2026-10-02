@@ -28,6 +28,17 @@ class NotificacaoService:
     def _hoje(self) -> datetime:
         return datetime.now()
 
+    @staticmethod
+    def _parse_competencia(comp: str) -> tuple[int, int]:
+        """Converte 'MM/AAAA' para (AAAA, MM) para comparacao cronologica correta."""
+        try:
+            partes = str(comp or "").strip().split("/")
+            if len(partes) == 2:
+                return int(partes[1]), int(partes[0])
+        except Exception:
+            pass
+        return (0, 0)
+
     def gerar_avisos(self) -> dict:
         """Retorna a central de avisos: inadimplentes + a vencer."""
         if self._mensalistas is None:
@@ -39,7 +50,7 @@ class NotificacaoService:
             pass
 
         hoje = self._hoje()
-        mes_atual = hoje.strftime("%m/%Y")
+        comp_atual_tuple = (hoje.year, hoje.month)
 
         avisos = []
         inadimplentes = 0
@@ -51,12 +62,12 @@ class NotificacaoService:
             mensalidades = self._mensalistas.mensalidades_do_mensalista(mensalista.id)
             pendente = next((m for m in mensalidades if m.status == MENSALIDADE_PENDENTE), None)
             atrasado = next((m for m in mensalidades if m.status == MENSALIDADE_ATRASADO), None)
-            ultima = next((m for m in sorted(mensalidades, key=lambda m: m.competencia, reverse=True)), None)
+            ultima = next((m for m in sorted(mensalidades, key=lambda m: self._parse_competencia(m.competencia), reverse=True)), None)
 
             if atrasado is not None:
                 inadimplentes += 1
                 avisos.append(self._montar_aviso(mensalista, atrasado, "inadimplente"))
-            elif pendente is not None and pendente.competencia <= mes_atual:
+            elif pendente is not None and self._parse_competencia(pendente.competencia) <= comp_atual_tuple:
                 inadimplentes += 1
                 avisos.append(self._montar_aviso(mensalista, pendente, "inadimplente"))
             elif ultima is not None and pendente is None:

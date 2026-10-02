@@ -8,13 +8,33 @@ informacoes de identificacao, perfil de acesso e status (ativo/inativo).
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 import hashlib
+import os
 
 FORMATO_DATA_CADASTRO = "%d/%m/%Y %H:%M:%S"
 
 
-def hash_senha(senha: str) -> str:
-    """Gera o hash SHA-256 da senha (armazenamento seguro)."""
-    return hashlib.sha256((senha or "").encode("utf-8")).hexdigest()
+def hash_senha(senha: str, salt: str | None = None) -> str:
+    """Gera hash PBKDF2-HMAC-SHA256 com salt para armazenamento seguro de senhas."""
+    if not senha:
+        return ""
+    if not salt:
+        salt = hashlib.sha256(os.urandom(16)).hexdigest()[:16]
+    chave = hashlib.pbkdf2_hmac("sha256", senha.encode("utf-8"), salt.encode("utf-8"), 100_000)
+    return f"pbkdf2:{salt}:{chave.hex()}"
+
+
+def verificar_senha(senha: str, hash_armazenado: str) -> bool:
+    """Valida a senha fornecida contra o hash armazenado (PBKDF2 ou SHA-256 legado)."""
+    if not senha or not hash_armazenado:
+        return False
+    if hash_armazenado.startswith("pbkdf2:"):
+        partes = hash_armazenado.split(":")
+        if len(partes) == 3:
+            salt = partes[1]
+            return hash_senha(senha, salt=salt) == hash_armazenado
+        return False
+    # Compatibilidade com SHA-256 legado (sem salt)
+    return hashlib.sha256(senha.encode("utf-8")).hexdigest() == hash_armazenado
 
 
 @dataclass

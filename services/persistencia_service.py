@@ -56,41 +56,62 @@ class PersistenciaService:
 
         return tickets
 
+    def _ticket_para_dados(self, ticket: Ticket, empresa_id: int | None = None) -> dict:
+        """Converte um objeto Ticket em dicionario para o Supabase."""
+        return {
+            "numero": ticket.numero,
+            "placa": ticket.placa,
+            "entrada": self._converter_data(ticket.entrada),
+            "saida": self._converter_data(ticket.saida),
+            "valor": ticket.valor,
+            "vaga": ticket.vaga,
+            "status": ticket.status,
+            "tipo_veiculo": ticket.tipo_veiculo,
+            "observacoes": ticket.observacoes,
+            "forma_pagamento": ticket.forma_pagamento,
+            "empresa_id": empresa_id if empresa_id is not None else ticket.empresa_id,
+        }
+
+    def salvar_ticket_individual(self, ticket: Ticket, empresa_id: int | None = None) -> None:
+        """Salva ou atualiza um unico ticket no Supabase (sem apagar os demais)."""
+        dados = self._ticket_para_dados(ticket, empresa_id)
+        try:
+            supabase.table("tickets").upsert(dados, on_conflict="numero").execute()
+        except Exception as erro:
+            texto = str(erro)
+            coluna_ausente = "PGRST204" in texto or "42703" in texto or "does not exist" in texto
+            if coluna_ausente and "forma_pagamento" in dados:
+                dados.pop("forma_pagamento", None)
+                supabase.table("tickets").upsert(dados, on_conflict="numero").execute()
+            else:
+                raise
+
+    def criar_ticket_individual(self, ticket: Ticket, empresa_id: int | None = None) -> None:
+        """Insere um ticket sem sobrescrever outro com o mesmo numero."""
+        dados = self._ticket_para_dados(ticket, empresa_id)
+        try:
+            supabase.table("tickets").insert(dados).execute()
+        except Exception as erro:
+            texto = str(erro)
+            coluna_ausente = "PGRST204" in texto or "42703" in texto or "does not exist" in texto
+            if coluna_ausente and "forma_pagamento" in dados:
+                dados.pop("forma_pagamento", None)
+                supabase.table("tickets").insert(dados).execute()
+            else:
+                raise
+
     def salvar_tickets(self, tickets: List[Ticket], empresa_id: int | None = None) -> None:
         """
-        Sincroniza os tickets da empresa atual com o Supabase.
-        Remove apenas os tickets da empresa (nao apaga os demais CNPJs).
+        Sincroniza os tickets da empresa atual com o Supabase usando upsert.
+        Nunca remove os dados fisicamente para evitar perda de dados.
         """
-
-        query_delete = supabase.table("tickets").delete()
-        if empresa_id is not None:
-            query_delete = query_delete.eq("empresa_id", empresa_id)
-        else:
-            query_delete = query_delete.neq("numero", -1)
-        query_delete.execute()
-
         if not tickets:
             return
 
-        dados = []
-
-        for ticket in tickets:
-            dados.append({
-                "numero": ticket.numero,
-                "placa": ticket.placa,
-                "entrada": self._converter_data(ticket.entrada),
-                "saida": self._converter_data(ticket.saida),
-                "valor": ticket.valor,
-                "vaga": ticket.vaga,
-                "status": ticket.status,
-                "tipo_veiculo": ticket.tipo_veiculo,
-                "observacoes": ticket.observacoes,
-                "forma_pagamento": ticket.forma_pagamento,
-                "empresa_id": empresa_id if empresa_id is not None else ticket.empresa_id,
-            })
+        dados = [self._ticket_para_dados(t, empresa_id) for t in tickets]
 
         try:
-            supabase.table("tickets").insert(dados).execute()
+            supabase.table("tickets").upsert(dados, on_conflict="numero").execute()
         except Exception as erro:
             texto = str(erro)
             coluna_ausente = (
@@ -98,13 +119,10 @@ class PersistenciaService:
                 or "42703" in texto
                 or "does not exist" in texto
             )
-            # Coluna forma_pagamento ainda nao existe no banco
-            # (executar sql/correcao_colunas_pendentes.sql no Supabase):
-            # grava sem ela para nao bloquear a entrada/saida do veiculo.
             if coluna_ausente and any("forma_pagamento" in item for item in dados):
                 for item in dados:
                     item.pop("forma_pagamento", None)
-                supabase.table("tickets").insert(dados).execute()
+                supabase.table("tickets").upsert(dados, on_conflict="numero").execute()
             else:
                 raise
 
@@ -225,6 +243,10 @@ class PersistenciaService:
             "horario_fechamento": config.horario_fechamento or None,
             "cabecalho_ticket": config.cabecalho_ticket,
             "rodape_ticket": config.rodape_ticket,
+            "ticket_exibir_cnpj": config.ticket_exibir_cnpj,
+            "ticket_exibir_contato": config.ticket_exibir_contato,
+            "ticket_formato_papel": config.ticket_formato_papel,
+            "ticket_exibir_codigo_barras": config.ticket_exibir_codigo_barras,
             "bloquear_sem_vaga": config.bloquear_sem_vaga,
             "exigir_observacao": config.exigir_observacao,
             "pix_tipo": config.pix_tipo,

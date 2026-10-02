@@ -54,14 +54,25 @@ def menu_registrar_entrada(servico: EstacionamentoService):
 
     print(f"Vagas livres: {servico.vagas_livres()} / {servico.config.total_vagas}\n")
 
-    placa = input("Digite a placa do veiculo: ").strip()
+    placa = input("Digite a placa do veiculo: ").strip().upper()
     if not placa:
         print("\nPlaca invalida.")
         pausar()
         return
 
+    print("\nTipo de veiculo:")
+    print("  1 - Carro (padrao)")
+    print("  2 - Moto")
+    print("  3 - Caminhonete")
+    print("  4 - Carro Grande")
+    opcao_tipo = input("Escolha o tipo [1]: ").strip()
+    mapa_tipos = {"1": "Carro", "2": "Moto", "3": "Caminhonete", "4": "Carro Grande"}
+    tipo_veiculo = mapa_tipos.get(opcao_tipo, "Carro")
+
+    observacoes = input("\nObservacoes (ex: cor, modelo) [opcional]: ").strip()
+
     try:
-        ticket = servico.registrar_entrada(placa)
+        ticket = servico.registrar_entrada(placa, tipo_veiculo=tipo_veiculo, observacoes=observacoes)
     except ValueError as erro:
         print(f"\nErro: {erro}")
         pausar()
@@ -87,13 +98,36 @@ def menu_registrar_saida(servico: EstacionamentoService):
         pausar()
         return
 
-    ticket = servico.registrar_saida(identificador)
+    print("\nForma de pagamento:")
+    print("  1 - Dinheiro")
+    print("  2 - Pix")
+    print("  3 - Cartao de Credito")
+    print("  4 - Cartao de Debito")
+    opcao_forma = input("Escolha a forma de pagamento [1]: ").strip()
+    mapa_formas = {
+        "1": "dinheiro",
+        "2": "pix",
+        "3": "cartao_credito",
+        "4": "cartao_debito",
+    }
+    forma_pagamento = mapa_formas.get(opcao_forma, "dinheiro")
+
+    ticket = servico.registrar_saida(identificador, forma_pagamento)
 
     if ticket is None:
         print("\nNenhum veiculo encontrado com esse ticket/placa (ou ja saiu).")
     else:
         print("\nSaida registrada com sucesso!\n")
         exibir_ticket(ticket)
+
+        # Integra com pagamentos/caixa/financeiro se disponivel
+        try:
+            from services_registry import servico_pagamentos
+            servico_pagamentos.registrar_pagamento_ticket(
+                ticket, forma_pagamento=forma_pagamento, operador="terminal"
+            )
+        except Exception:
+            pass
 
     pausar()
 
@@ -217,7 +251,11 @@ def exibir_menu_principal(servico: EstacionamentoService):
 
 def main():
     """Funcao principal: inicializa o servico e roda o loop do menu."""
-    servico = EstacionamentoService()
+    try:
+        from services_registry import servico as servico_compartilhado
+        servico = servico_compartilhado
+    except Exception:
+        servico = EstacionamentoService()
 
     opcoes = {
         "1": menu_registrar_entrada,

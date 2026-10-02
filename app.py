@@ -18,6 +18,7 @@ Para executar:
 Depois, acesse http://127.0.0.1:5000 no navegador.
 """
 
+import os
 from flask import Flask
 
 from routes.auth import bp as bp_auth
@@ -31,7 +32,7 @@ from routes.extras import bp as bp_extras
 from routes.paginas import bp as bp_paginas
 
 app = Flask(__name__)
-app.secret_key = "estaciona-parking-secret-key-2026"
+app.secret_key = os.getenv("SECRET_KEY") or os.urandom(32)
 
 # Registro dos blueprints (cada um expoe um grupo de rotas da API/frontend)
 for bp in (
@@ -49,4 +50,6 @@ for bp in (
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    porta = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "").strip().lower() in {"1", "true"}
+    app.run(host="0.0.0.0", port=porta, debug=debug)
