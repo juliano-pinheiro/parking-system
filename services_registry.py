@@ -6,6 +6,7 @@ instancias dos servicos, serializadores e verificacoes de permissao
 vivem aqui e sao importados pelos modulos de rota.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from flask import jsonify, session
@@ -119,28 +120,33 @@ def recarregar_services_por_empresa(empresa_id=None):
     nao sao recarregados.
     """
     eid = empresa_id
-    servico.recarregar(eid)
-    servico_financeiro.recarregar(eid)
-    servico_caixa.recarregar(eid)
-    servico_pagamentos.recarregar(eid)
-    servico_formas_pagamento.recarregar(eid)
-    servico_tabela_precos.recarregar(eid)
-    servico_tipos_veiculo.recarregar(eid)
+    services_empresa = (
+        servico,
+        servico_financeiro,
+        servico_caixa,
+        servico_pagamentos,
+        servico_formas_pagamento,
+        servico_tabela_precos,
+        servico_tipos_veiculo,
+        servico_descontos,
+        servico_cortesias,
+        servico_mensalistas,
+        servico_convenios,
+        servico_contas_receber,
+        servico_estornos,
+        servico_clientes,
+        servico_nfse,
+        servico_lista_negra,
+        servico_reservas,
+        servico_ocorrencias,
+    )
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(lambda service: service.recarregar(eid), services_empresa))
+
     servico_tabela_precos.definir_tipos_personalizados(
         servico_tipos_veiculo.listar(somente_ativos=True)
     )
     servico.tabela_preco_service = servico_tabela_precos
-    servico_descontos.recarregar(eid)
-    servico_cortesias.recarregar(eid)
-    servico_mensalistas.recarregar(eid)
-    servico_convenios.recarregar(eid)
-    servico_contas_receber.recarregar(eid)
-    servico_estornos.recarregar(eid)
-    servico_clientes.recarregar(eid)
-    servico_nfse.recarregar(eid)
-    servico_lista_negra.recarregar(eid)
-    servico_reservas.recarregar(eid)
-    servico_ocorrencias.recarregar(eid)
     servico_notificacao._mensalistas = servico_mensalistas
     servico_notificacao._nome_estacionamento = servico.config.nome_estacionamento
     servico_relatorio._pagamentos = servico_pagamentos

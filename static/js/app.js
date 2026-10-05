@@ -1836,17 +1836,17 @@ async function abrirModalTrocarEmpresa() {
         overlay.hidden = true;
         if (dados.empresa) {
           const nomeNovo = dados.empresa.nome_fantasia || dados.empresa.razao_social;
-          if (nomeNovo) aplicarNomeSistema(nomeNovo);
+          if (nomeNovo) {
+            aplicarNomeSistema(nomeNovo);
+            const headerEmpresa = document.getElementById("header-empresa-nome");
+            if (headerEmpresa) {
+              headerEmpresa.textContent = `🏢 ${nomeNovo}`;
+              headerEmpresa.hidden = false;
+            }
+          }
         }
-        await carregarSessao();
-        await carregarEmpresas();
-        await carregarDashboard();
-        await carregarPatio();
-        if (document.querySelector(".view-active#view-usuarios")) {
-          await carregarUsuarios();
-        }
-        await carregarConfiguracoes();
-        recarregarAbaAtual();
+        const viewAtiva = document.querySelector(".view-active")?.id || "view-visao-geral";
+        mostrarView(viewAtiva);
       } catch (erro) {
         mostrarToast(erro.message, "error");
       }
