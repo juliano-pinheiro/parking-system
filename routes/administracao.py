@@ -279,8 +279,11 @@ def api_inativar_empresa(id_empresa: int):
     ok, erro = apenas_master()
     if not ok:
         return erro
-    if not servico_empresas.inativar(id_empresa):
-        return jsonify({"erro": "Empresa nao encontrada."}), 404
+    try:
+        if not servico_empresas.inativar(id_empresa):
+            return jsonify({"erro": "Empresa nao encontrada."}), 404
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 500
     servico_auditoria.registrar("empresas", id_empresa, "inativar", None, None, usuario_logado().nome)
     return jsonify({"mensagem": "Empresa inativada com sucesso!"})
 

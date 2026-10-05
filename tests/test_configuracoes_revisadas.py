@@ -8,7 +8,12 @@ Valida:
 """
 
 import json
+from unittest.mock import Mock, patch
+
 from app import app
+import services.empresa_service as empresa_service_module
+from models.empresa import Empresa
+from services.empresa_service import EmpresaService
 from services_registry import servico, servico_tabela_precos
 
 
@@ -166,3 +171,52 @@ def test_troca_empresa_multi_cnpj_atualiza_nome_estacionamento():
 
     # Restaura para empresa 1
     cliente.post("/api/empresa/trocar", json={"empresa_id": 1})
+
+
+def test_inativar_empresa_atualiza_apenas_empresa_selecionada():
+    empresa = Empresa(
+        id=17,
+        cnpj="12345678000190",
+        razao_social="Empresa duplicada",
+        nome_fantasia="Empresa duplicada",
+    )
+    service = EmpresaService.__new__(EmpresaService)
+    service._registros = [empresa]
+    supabase = Mock()
+    tabela = Mock()
+    supabase.table.return_value = tabela
+    tabela.update.return_value = tabela
+    tabela.eq.return_value = tabela
+
+    with patch.object(empresa_service_module, "supabase", supabase):
+        assert service.inativar(17) is True
+
+    supabase.table.assert_called_once_with("empresas")
+    tabela.update.assert_called_once_with({"ativo": False})
+    tabela.eq.assert_called_once_with("id", 17)
+    assert empresa.ativo is False
+
+
+def test_inativar_empresa_preserva_estado_se_banco_falhar():
+    empresa = Empresa(
+        id=18,
+        cnpj="12345678000190",
+        razao_social="Empresa duplicada",
+        nome_fantasia="Empresa duplicada",
+    )
+    service = EmpresaService.__new__(EmpresaService)
+    service._registros = [empresa]
+    supabase = Mock()
+    supabase.table.return_value.update.return_value.eq.return_value.execute.side_effect = RuntimeError(
+        "database unavailable"
+    )
+
+    with patch.object(empresa_service_module, "supabase", supabase):
+        try:
+            service.inativar(18)
+        except ValueError as erro:
+            assert "Nao foi possivel inativar" in str(erro)
+        else:
+            raise AssertionError("A falha ao salvar deveria ser reportada.")
+
+    assert empresa.ativo is True

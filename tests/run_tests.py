@@ -113,6 +113,12 @@ class TestSistemaEstacionamento(unittest.TestCase):
     def test_troca_empresa_multi_cnpj_atualiza_nome_estacionamento(self):
         test_troca_empresa_multi_cnpj_atualiza_nome_estacionamento()
 
+    def test_inativar_empresa_atualiza_apenas_empresa_selecionada(self):
+        test_inativar_empresa_atualiza_apenas_empresa_selecionada()
+
+    def test_inativar_empresa_preserva_estado_se_banco_falhar(self):
+        test_inativar_empresa_preserva_estado_se_banco_falhar()
+
     def test_relatorio_pagamentos_estrutura(self):
         test_relatorio_pagamentos_estrutura()
 

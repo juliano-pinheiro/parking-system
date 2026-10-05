@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from models.empresa import Empresa
 from services.base_supabase_service import BaseSupabaseService
+from supabase_client import supabase
 
 
 class EmpresaService(BaseSupabaseService):
@@ -148,7 +149,11 @@ class EmpresaService(BaseSupabaseService):
         empresa = self.buscar_por_id(id_empresa)
         if empresa is None:
             return False
+
+        try:
+            supabase.table(self.TABELA).update({"ativo": False}).eq("id", id_empresa).execute()
+        except Exception as erro:
+            raise ValueError("Nao foi possivel inativar a empresa no banco de dados.") from erro
+
         empresa.ativo = False
-        empresa.alterado_em = ""
-        self._persistir()
         return True
